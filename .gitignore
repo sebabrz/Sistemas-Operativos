@@ -1,0 +1,45 @@
+# Binarios y ejecutables
+*.out
+*.exe
+*.bin
+*.app
+a.out
+*.elf
+
+# Archivos objeto y de compilación
+*.o
+*.obj
+*.ko
+*.lo
+*.slo
+*.la
+*.a
+*.so
+*.so.*
+
+# Archivos de depuración
+*.dSYM/
+*.su
+*.idb
+*.pdb
+
+# Archivos temporales del compilador
+*.d
+*.gch
+*.pch
+
+# Directorios de build
+build/
+bin/
+obj/
+out/
+
+# Archivos de editores / IDEs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
