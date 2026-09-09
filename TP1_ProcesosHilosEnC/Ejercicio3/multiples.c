@@ -22,7 +22,7 @@ int main() {
     if (pid == 0) {
         printf ("Soy el proces hijo mi id es %d y mi papa es %d\n", getpid(), getppid());
         execlp("usr", "ls", "-al", NULL);
-    }; //si soy el hijo, no sigo creando y salgo del proceso. 
+    }; 
 
 
     return 0;
