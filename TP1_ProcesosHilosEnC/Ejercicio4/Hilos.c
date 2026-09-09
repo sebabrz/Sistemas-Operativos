@@ -45,5 +45,11 @@ int main() {
                                             // el hilo especificado (hilo[i]) termine su ejecución
     }
 
+    for (int i=1; i<variable+1; i++){
+        pthread_join(hilo[i], NULL);        // bloquea al hilo que lo llama, 
+                                            // el hilo principal, dentro de main()) hasta que 
+                                            // el hilo especificado (hilo[i]) termine su ejecución
+    }
+
     return 0;
 }

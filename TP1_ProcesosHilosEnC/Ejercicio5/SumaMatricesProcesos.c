@@ -48,7 +48,7 @@ void imprimirMatrizC(struct MatricesCompartida *ptr) {
 
 int main() {
 
-    srandom(time(NULL));
+srandom(time(NULL));
 
 // shm_open crea un objeto de memoria compartida identificado por un nombre
 // parametros: nombre del objeto ("/matrices_shm"), O_CREAT crea el objeto si no existe + O_RDWR permite leer y escribir, 0666 son los permisos de acceso. Devuelve un descriptor (fd), un "ticket" para referirse a este objeto despues
@@ -84,10 +84,8 @@ struct MatricesCompartida *ptr = mmap(NULL, sizeof(struct MatricesCompartida),PR
                 //guardo el resultado en
             }
 
-        break;
+        break; //         //termino y paso a el otro hijo, asi no sigue creando el fork() hijos para abajo
         }
-
-         //termino y paso a el otro hijo, asi no sigue creando el fork() hijos para abajo
     }
 
     if (pid > 0 ) {
