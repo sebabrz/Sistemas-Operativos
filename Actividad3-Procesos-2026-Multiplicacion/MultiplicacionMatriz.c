@@ -44,7 +44,7 @@ void *multiplicacion (void *args) {
     int fila = (intptr_t) args;
 
     for (int j=0 ; j<CANT; j++) {
-        matrizC[fila][j] = matrizA[fila][j] * matrizB[fila][j];
+        matrizC[fila][j] = matrizA[fila][j] * matrizB[j][fila];
     }
     return NULL;
 }
