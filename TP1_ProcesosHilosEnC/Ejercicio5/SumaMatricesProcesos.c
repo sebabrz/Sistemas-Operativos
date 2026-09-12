@@ -62,7 +62,7 @@ ftruncate(fd, sizeof(struct MatricesCompartida));
 // parametros: NULL deja que el sistema elija la direccion, sizeof(...) cuantos bytes mapear, PROT_READ|PROT_WRITE permite leer y escribir, MAP_SHARED hace que los cambios sean visibles para otros procesos que mapeen el mismo objeto, fd es el objeto a mapear, 0 es el offset (desde que byte arrancar, en este caso desde el principio)
 struct MatricesCompartida *ptr = mmap(NULL, sizeof(struct MatricesCompartida),PROT_READ | PROT_WRITE, MAP_SHARED, fd, NULL);
 
-    printf("MATRIZ A \n");
+    printf("MATRI15. Proporcione dos ejemplos de programación en los que los mecanismos de multithread no proporcionen un mejor rendimiento que una solución mono thread. Z A \n");
     generarMatrizA(ptr);
 
     printf("\n");
