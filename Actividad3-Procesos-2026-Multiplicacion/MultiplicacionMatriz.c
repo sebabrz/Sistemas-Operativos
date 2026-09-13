@@ -5,6 +5,11 @@
 #include <pthread.h>
 #include <time.h>
 
+
+/*
+    no escala bien para matrices grandes (crear miles de threads sería ineficiente)
+*/
+
 #define CANT 9
 
 int matrizA[CANT][CANT];
@@ -41,10 +46,14 @@ void imprimirMatrizC() {
 }
 
 void *multiplicacion (void *args) {
-    int fila = (intptr_t) args;
+    int fila = (int) args;
 
-    for (int j=0 ; j<CANT; j++) {
-        matrizC[fila][j] = matrizA[fila][j] * matrizB[j][fila];
+    for (int j = 0; j < CANT; j++) {
+        int suma = 0;
+        for (int k = 0; k < CANT; k++) {
+            suma = suma + (matrizA[fila][k] * matrizB[k][j]);
+        }
+        matrizC[fila][j] = suma;
     }
     return NULL;
 }
@@ -65,13 +74,12 @@ int main() {
     printf("\n");
     pthread_t hilo[CANT];
     for (int i=0; i<CANT; i++){
-        pthread_create (&hilo[i], NULL, &multiplicacion, (intptr_t) i);
+        pthread_create (&hilo[i], NULL, &multiplicacion, (void*)(intptr_t)i);
     }
 
     for (int i=0; i<CANT; i++){
         pthread_join(hilo[i], NULL);
     }
-
 
     printf ("Matriz C resultante \n");
     imprimirMatrizC();
