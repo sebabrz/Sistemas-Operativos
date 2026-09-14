@@ -47,30 +47,24 @@ int main() {
         //---- Proceso padre ----
         printf ("Soy el proceso padre ID: %d \n", getpid());
         close(pipeFD[0]); 
-        char mensaje1[100] = "Hola hijo!";
-        char mensaje2[100] = "Como estas?";
-
+        char mensaje1[100] = "Hola";
         write (pipeFD[1], mensaje1, sizeof (mensaje1));
-        write (pipeFD[1], mensaje2, sizeof (mensaje2));
-
         close(pipeFD[1]); 
-
-        printf ("Mensajes enviados.\n");
+        printf ("Mensaje enviado.\n");
 
     } else if(pid ==0){
         //---- Proceso hijo ----
         close(pipeFD[1]);
         char mensaje_1[100];
-        char mensaje_2[100];
         read (pipeFD[0], mensaje_1, sizeof (mensaje_1));
-        read (pipeFD[0], mensaje_2, sizeof (mensaje_2));
 
-        close(pipeFD[0]);
-        
         printf ("Soy el proceso hijo ID: %d \n", getpid());
-        printf ("El mensaje es %s\n", mensaje_1 );
-        printf ("El mensaje es %s\n", mensaje_2 );
+        printf ("El mensaje es %s Mundo!\n", mensaje_1 );
         printf ("Mensajes recibidos.\n");
+
+        close(pipeFD[1]);
+
+
         
     }
     return 0;
