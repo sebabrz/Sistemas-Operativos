@@ -40,32 +40,29 @@ int main() {
 
     if (pid < 0) {
         printf ("Error al crear proceso");
+        exit(1);
 
     }
 
     if (pid > 0){
         //---- Proceso padre ----
         printf ("Soy el proceso padre ID: %d \n", getpid());
-        close(pipeFD[0]); 
+        close(pipeFD[0]); //cierro el extremo de lectura
         char mensaje1[100] = "Hola";
-        write (pipeFD[1], mensaje1, sizeof (mensaje1));
-        close(pipeFD[1]); 
+        write (pipeFD[1], mensaje1, sizeof (mensaje1)); //escribo sobre el extremo de escritura
         printf ("Mensaje enviado.\n");
+        wait(NULL);
+        
 
     } else if(pid ==0){
         //---- Proceso hijo ----
-        close(pipeFD[1]);
+        close(pipeFD[1]); //cierro el extremo de escritura
         char mensaje_1[100];
-        read (pipeFD[0], mensaje_1, sizeof (mensaje_1));
+        read (pipeFD[0], mensaje_1, sizeof (mensaje_1)); //escribo sobre el extremo de lectura
 
         printf ("Soy el proceso hijo ID: %d \n", getpid());
         printf ("El mensaje es %s Mundo!\n", mensaje_1 );
-        printf ("Mensajes recibidos.\n");
-
-        close(pipeFD[1]);
-
-
-        
+        printf ("Mensajes recibidos.\n");    
     }
     return 0;
 }
