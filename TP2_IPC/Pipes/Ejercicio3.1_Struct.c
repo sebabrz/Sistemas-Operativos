@@ -15,54 +15,63 @@
 #include <math.h>       // funciones matematicas
 #include <dirent.h>     // lectura de directorios
 
-/* 
-    Usar un pipe para mandar datos de un proceso padre 
+#define READ 0
+#define WRITE 1
+#define CANT 10
+#define size 100
+
+/*
+    Usar un pipe para mandar datos de un proceso padre
     a un proceso hijo
 */
 
+struct dato {
+    int tipo;
+    char mensaje[size];
+};
+
 int main() {
 
-    int pipeFD[2];
-
-    /*
-    pipeFD[1] es la entrada de escritura.
-    pipeFD[0] es la entrada de lectura.
-    */
+    int pipes[2];
+    struct dato msj;
+    srandom(time(NULL));
 
     pid_t pid;
 
-    if (pipe(pipeFD) == -1 ) {
-        printf ("Error al crear el pipe");
+    if (pipe(pipes) == -1) {
+        perror("Error al crear pipe");
         exit(1);
     }
 
     pid = fork();
-
     if (pid < 0) {
-        printf ("Error al crear proceso");
+        printf("Error al crear proceso");
         exit(1);
-
     }
 
-    if (pid > 0){
+    if (pid > 0) {  
         //---- Proceso padre ----
-        printf ("Soy el proceso padre ID: %d \n", getpid());
-        close(pipeFD[0]); //cierro el extremo de lectura
-        char mensaje1[100] = "Hola";
-        write (pipeFD[1], mensaje1, sizeof (mensaje1)); //escribo sobre el extremo de escritura
-        printf ("Mensaje enviado.\n");
+        close(pipes[READ]);
+
+        for (int i = 0; i < CANT; i++) {
+            msj.tipo = random() % 9;
+            strcpy(msj.mensaje, "hola");
+            write(pipes[WRITE], &msj, sizeof(msj));
+        }
+
+        close(pipes[WRITE]);
         wait(NULL);
-        
-
-    } else if(pid ==0){
+    } else if (pid == 0) {
         //---- Proceso hijo ----
-        close(pipeFD[1]); //cierro el extremo de escritura
-        char mensaje_1[100];
-        read (pipeFD[0], mensaje_1, sizeof (mensaje_1)); //escribo sobre el extremo de lectura
+        close(pipes[WRITE]);
 
-        printf ("Soy el proceso hijo ID: %d \n", getpid());
-        printf ("El mensaje es %s Mundo!\n", mensaje_1 );
-        printf ("Mensajes recibidos.\n");    
-    }
+        for (int j = 0; j < CANT; j++) {
+            read(pipes[READ], &msj, sizeof(msj));
+            printf("Tipo: %d, Mensaje: %s\n", msj.tipo, msj.mensaje);
+        }
+
+        close(pipes[READ]);
+        exit(0);
+    
     return 0;
 }
