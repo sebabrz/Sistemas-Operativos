@@ -7,9 +7,9 @@
 #include <fcntl.h>
 #include <sys/mman.h>
 
-#define TAMANIO_COL 5
-#define TAMANIO_FIL 5
-#define CANT_PROCESOS 5
+#define TAMANIO_COL 9
+#define TAMANIO_FIL 9
+#define CANT_PROCESOS 9
 
 struct MatricesCompartida {
     int matrizA[TAMANIO_COL][TAMANIO_COL];
@@ -89,11 +89,9 @@ struct MatricesCompartida *ptr = mmap(NULL, sizeof(struct MatricesCompartida),PR
     }
 
     if (pid > 0 ) {
-        wait(NULL);
-        wait(NULL);
-        wait(NULL);
-        wait(NULL);
-        wait(NULL);
+        for (int i=0; i<CANT_PROCESOS; i++){
+            wait(NULL);
+        }
 
         printf("\nMATRIZ C (resultado de A + B)\n");
         imprimirMatrizC(ptr);

@@ -16,106 +16,108 @@
 #include <dirent.h>     // lectura de directorios
 #include <sys/msg.h>
 
-#define KEY ((key_t) (1243))
+#define KEY ((key_t) (143))
+#define CANT 10
 
 /*
-    Una caracteristica de las colas de mensajes 
-    es que los mensajes pueden clasificarse 
+    Una caracteristica de las colas de mensajes
+    es que los mensajes pueden clasificarse
     utilizando tipos.
     Crear tres procesos tal que:
 
-    - El procesos principal debe enviar varios mensajes 
+    - El procesos principal debe enviar varios mensajes
     de dos tipos diferentes utilizando una
     cola de mensajes creada previamente.
 
-    - Cada uno de los restantes procesos lee iterativamente 
+    - Cada uno de los restantes procesos lee iterativamente
     uno de los tipos de mensaje y lo muestra por pantalla.
 
     - Si no existen mensajes en la cola se debe esperar.
 
 */
 
-struct mensaje{
+struct mensaje {
     long tipo;
-    char texto[20];
+    int dato;
 };
 
 int main() {
 
     pid_t pid1;
     pid_t pid2;
-
+    srandom(time(NULL));
     int msqid = msgget(KEY, IPC_CREAT | 0666);
+    int tipo1 = 0;
+    int tipo2 = 0;
 
     if (msqid == -1) {
-        printf ("La cola no pudo crearse");
+        printf("La cola no pudo crearse");
         exit(1);
+    }
+    printf("Soy el proceso padre mi pid es: %d \n", getpid());
+
+    //llenar la cola de mensajes, con dos mensajes diferentes de tipos diferentes.
+    for (int i = 0; i < CANT; i++) {
+        struct mensaje mensajes[CANT];
+        int tip = random() % 2 + 1;
+        mensajes[i].tipo = tip;
+        if (tip == 1) {
+            tipo1++;
+        } else {
+            tipo2++;
+        }
+        // strcpy(mensajes[i].texto, "Hola hijo %d, soy de tipo %d", mensajes[i].tipo, mensajes[i].tipo);
+        mensajes[i].dato = random() % 5;
+        int longitud = sizeof(struct mensaje) - sizeof(long);
+        msgsnd(msqid, &mensajes[i], longitud, 0);
     }
 
     pid1 = fork();
 
     if (pid1 < 0) {
-        printf ("Error");
-        exit (1);
+        printf("Error");
+        exit(1);
     }
 
     if (pid1 == 0) {
         //---- Proceso hijo 1 ----
-        printf("Soy el hijo 1 mi pid es: %d mi padre es %d \n" , getpid(), getppid());
 
-        struct mensaje mensaje1;
-        int longitud1 = sizeof(struct mensaje) - sizeof(long);
+        printf("Soy el hijo 1 mi pid es: %d mi padre es %d \n", getpid(), getppid());
 
-
-        msgrcv(msqid, &mensaje1 , longitud1, 1, 0);
-
-        printf ("Recibi el mensaje: %s \n", mensaje1.texto);
+        struct mensaje mensajes1[tipo1];
+        int longitud1;
+        for (int i = 0; i < tipo1; i++) {
+            longitud1 = sizeof(struct mensaje) - sizeof(long);
+            msgrcv(msqid, &mensajes1[i], longitud1, 1, 0);
+            printf("Recibi el mensaje: %d, soy de tipo %ld \n", mensajes1[i].dato, mensajes1[i].tipo);
+        }
+        exit(0);
 
     } else if (pid1 > 0) {
-        //---- Proceso padre----
-        printf("Soy el proceso padre mi pid es: %d \n" , getpid());
-
-        //llenar la cola de mensajes, con dos mensajes diferentes de tipos diferentes.
-
-        struct mensaje mensaje1;
-        mensaje1.tipo = 1;
-        //mensaje1.texto = "Hola hijo 1";
-        strcpy(mensaje1.texto, "Hola hijo 2");
-
-        struct mensaje mensaje2;
-        mensaje2.tipo = 2;
-        //mensaje2.texto = "Hola hijo 2";
-        strcpy(mensaje2.texto, "Hola hijo 2");
-
-        int longitud1 = sizeof(struct mensaje) - sizeof(long);
-        int longitud2 = sizeof(struct mensaje) - sizeof(long);
-
-        msgsnd(msqid, &mensaje1, longitud1, 0);
-        msgsnd(msqid, &mensaje2, longitud2, 0);
-
 
         pid2 = fork();
 
         if (pid2 < 0) {
-            printf ("Error");
-            exit (1);
+            printf("Error");
+            exit(1);
         }
 
         if (pid2 == 0) {
             //---- Proceso hijo 2----
-            printf("Soy el hijo 2 mi pid es: %d mi padre es %d \n" , getpid(), getppid());
+            printf("Soy el hijo 2 mi pid es: %d mi padre es %d \n", getpid(), getppid());
 
-            struct mensaje mensaje2;
-            int longitud2= sizeof(struct mensaje) - sizeof(long);
-
-
-            msgrcv(msqid, &mensaje2 , longitud2, 2, 0);
-
-            printf ("Recibi el mensaje: %s \n", mensaje2.texto);
+            struct mensaje mensajes2[tipo2];
+            int longitud2;
+            for (int i = 0; i < tipo2; i++) {
+                longitud2 = sizeof(struct mensaje) - sizeof(long);
+                msgrcv(msqid, &mensajes2[i], longitud2, 2, 0);
+                printf("Recibi el mensaje: %d, soy de tipo %ld \n", mensajes2[i].dato, mensajes2[i].tipo);
+            }
+            exit(0);
         }
 
         //espera por ambos hijos
-        wait(NULL); 
+        wait(NULL);
         wait(NULL);
     }
 
