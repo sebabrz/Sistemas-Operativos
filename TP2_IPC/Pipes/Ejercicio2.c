@@ -87,7 +87,7 @@ int main() {
                 break;
             }
             printf("El mensaje del padre es: %s \n", lectura); //escribo sobre el extremo de lectura
-
+            
             write(pipeFD2[WRITE], respuestas[j], strlen(respuestas[j]) + 1);
             if (strcmp(respuestas[j], "salir") == 0) {
                 break;
