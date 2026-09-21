@@ -15,7 +15,6 @@ Un proceso es un programa corriendo. `fork()` es "clonate a vos mismo": de golpe
 ### En mi código
 Uso `fork()` encadenado (varios `if/else if` según el valor de retorno) para crear 2, 3 o hasta 9 procesos según el ejercicio (colas de mensajes, suma de matrices). Siempre chequeo `pid < 0` como error.
 
-```c
 pid = fork();
 
 if (pid < 0) {
