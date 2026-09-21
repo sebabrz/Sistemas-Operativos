@@ -37,7 +37,7 @@ int main()
         // TODO: armar el/los mensajes y mandarlos con msgsnd
         // msg.tipo = 1;                      // MODIFICAR: tipo de mensaje
         // msg.dato = /* ... */;               // MODIFICAR: contenido
-        // if (msgsnd(msqid, &msg, longitud, 0) == -1) { perror("msgsnd"); exit(1); }
+        if (msgsnd(msqid, &msg, longitud, 0) == -1) { perror("msgsnd"); exit(1); }
 
         wait(NULL);
 
@@ -50,7 +50,7 @@ int main()
         // Bloqueante, tipo exacto:        msgrcv(msqid, &msg, longitud, 1, 0);
         // No bloqueante, cualquier tipo:  msgrcv(msqid, &msg, longitud, 0, IPC_NOWAIT);
         // Prioridad (tipo <= N):          msgrcv(msqid, &msg, longitud, -N, IPC_NOWAIT);
-        // if (msgrcv(msqid, &msg, longitud, 0, 0) == -1) { perror("msgrcv"); exit(1); }
+        if (msgrcv(msqid, &msg, longitud, 0, 0) == -1) { perror("msgrcv"); exit(1); }
         // printf("Recibi: %d, tipo %ld\n", msg.dato, msg.tipo);
 
         exit(0);

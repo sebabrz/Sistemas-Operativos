@@ -43,7 +43,7 @@ struct vocales {
 
 int main(int argc, char *argv[])
 {
-    struct vocales *ptr;
+    
     int id = shmget(KEY, SIZE, IPC_CREAT | 0666);
     int c = 0;
 
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
         exit(2);
     }
 
-    ptr = (struct vocales *)shmat(id, 0, 0);
+    struct vocales *ptr = (struct vocales *)shmat(id, 0, 0);
 
     FILE *archivo;
 
