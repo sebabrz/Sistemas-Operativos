@@ -1,19 +1,27 @@
-#include <stdio.h>      // printf, fprintf
-#include <stdlib.h>     // malloc, exit, random
-#include <unistd.h>     // fork, exec, getpid, sleep
-#include <sys/wait.h>   // wait, waitpid
-#include <pthread.h>    // hilos POSIX
-#include <sys/types.h>  // pid_t y otros tipos
-#include <time.h>       // time, medicion de tiempo
-#include <stdint.h>     // enteros de tamaño fijo
-#include <sys/mman.h>   // memoria compartida (mmap)
-#include <fcntl.h>      // flags de apertura (O_CREAT, etc.)
-#include <sys/stat.h>   // permisos de archivos
-#include <sys/shm.h>    // memoria compartida System V
-#include <string.h>     // manejo de strings
-#include <sys/time.h>   // gettimeofday
-#include <math.h>       // funciones matematicas
-#include <dirent.h>     // lectura de directorios
+#include <stdio.h> // printf, fprintf
+#include <stdlib.h> // malloc, exit, random
+#include <unistd.h> // fork, exec, getpid, sleep
+#include <sys/wait.h> // wait, waitpid
+#include <pthread.h> // hilos POSIX
+#include <sys/types.h> // pid_t y otros tipos
+#include <time.h> // time, medicion de tiempo
+#include <stdint.h> // enteros de tamaño fijo
+#include <sys/mman.h> // memoria compartida (mmap)
+#include <fcntl.h> // flags de apertura (O_CREAT, etc.)
+#include <sys/stat.h> // permisos de archivos
+#include <sys/shm.h> // memoria compartida System V
+#include <string.h> // manejo de strings
+#include <sys/time.h> // gettimeofday
+#include <math.h> // funciones matematicas
+#include <dirent.h> // lectura de directorios
+
+/*
+    Memoria compartida para contar vocales: se crea un segmento con
+    contadores por vocal. El padre recibe el nombre de un archivo de
+    texto y crea procesos hijos que cuentan las vocales del texto; los
+    resultados se acumulan en el segmento compartido y el padre
+    muestra el total al finalizar.
+*/
 
 #define KEY (key_t)(1234)
 #define SIZE sizeof(struct vocales)
@@ -25,12 +33,16 @@ struct vocales {
     int cant_o;
     int cant_u;
 };
-/*argc (argument count) → cuántos argumentos se pasaron, contando el nombre del programa.
-argv (argument vector) → array de strings con esos argumentos. argv[0] siempre es el nombre del ejecutable, 
-argv[1] es el primer argumento real (tu archivo), etc.
-esto es para el txt que me van a pasar al ejecutar ./programa archivo.txt, el fopen hace fopen(argv[1], "modo")
+/*
+    argc (argument count) → cuántos argumentos se pasaron, contando el nombre del programa.
+    argv (argument vector) → array de strings con esos argumentos. argv[0] siempre es el nombre del ejecutable, 
+    argv[1] es el primer argumento real (tu archivo), etc.
+    esto es para el txt que me van a pasar al ejecutar ./programa archivo.txt, el fopen hace fopen(argv[1], "modo")
 */
-int main(int argc, char *argv[]) {
+
+
+int main(int argc, char *argv[])
+{
     struct vocales *ptr;
     int id = shmget(KEY, SIZE, IPC_CREAT | 0666);
     int c = 0;
@@ -40,7 +52,7 @@ int main(int argc, char *argv[]) {
         exit(2);
     }
 
-    ptr = (struct vocales *) shmat(id, 0, 0);
+    ptr = (struct vocales *)shmat(id, 0, 0);
     FILE *archivo;
 
     pid_t vocalA;
@@ -52,9 +64,9 @@ int main(int argc, char *argv[]) {
     vocalA = fork();
     if (vocalA == 0) {
         ptr->cant_a = 0;
-        archivo = fopen(argv[1], "r");//ejemplo pasando como argumento
+        archivo = fopen(argv[1], "r"); //ejemplo pasando como argumento
         while ((c = fgetc(archivo)) != EOF) {
-            if ((char) c == 'a') {
+            if ((char)c == 'a') {
                 ptr->cant_a++;
             }
         }
@@ -69,7 +81,7 @@ int main(int argc, char *argv[]) {
             ptr->cant_e = 0;
             archivo = fopen("texto.txt", "r");
             while ((c = fgetc(archivo)) != EOF) {
-                if ((char) c == 'e') {
+                if ((char)c == 'e') {
                     ptr->cant_e++;
                 }
             }
@@ -84,7 +96,7 @@ int main(int argc, char *argv[]) {
                 ptr->cant_i = 0;
                 archivo = fopen("texto.txt", "r");
                 while ((c = fgetc(archivo)) != EOF) {
-                    if ((char) c == 'i') {
+                    if ((char)c == 'i') {
                         ptr->cant_i++;
                     }
                 }
@@ -99,7 +111,7 @@ int main(int argc, char *argv[]) {
                     ptr->cant_o = 0;
                     archivo = fopen("texto.txt", "r");
                     while ((c = fgetc(archivo)) != EOF) {
-                        if ((char) c == 'o') {
+                        if ((char)c == 'o') {
                             ptr->cant_o++;
                         }
                     }
@@ -114,7 +126,7 @@ int main(int argc, char *argv[]) {
                         ptr->cant_u = 0;
                         archivo = fopen("texto.txt", "r");
                         while ((c = fgetc(archivo)) != EOF) {
-                            if ((char) c == 'u') {
+                            if ((char)c == 'u') {
                                 ptr->cant_u++;
                             }
                         }
@@ -142,4 +154,4 @@ int main(int argc, char *argv[]) {
     shmctl(id, IPC_RMID, NULL);
 
     return 0;
-}       
+}

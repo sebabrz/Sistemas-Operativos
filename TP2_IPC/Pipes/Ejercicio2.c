@@ -1,33 +1,34 @@
-#include <stdio.h>      // printf, fprintf
-#include <stdlib.h>     // malloc, exit, random
-#include <unistd.h>     // fork, exec, getpid, sleep
-#include <sys/wait.h>   // wait, waitpid
-#include <pthread.h>    // hilos POSIX
-#include <sys/types.h>  // pid_t y otros tipos
-#include <time.h>       // time, medicion de tiempo
-#include <stdint.h>     // enteros de tamaño fijo
-#include <sys/mman.h>   // memoria compartida (mmap)
-#include <fcntl.h>      // flags de apertura (O_CREAT, etc.)
-#include <sys/stat.h>   // permisos de archivos
-#include <sys/shm.h>    // memoria compartida System V
-#include <string.h>     // manejo de strings
-#include <sys/time.h>   // gettimeofday
-#include <math.h>       // funciones matematicas
-#include <dirent.h>     // lectura de directorios
+#include <stdio.h> // printf, fprintf
+#include <stdlib.h> // malloc, exit, random
+#include <unistd.h> // fork, exec, getpid, sleep
+#include <sys/wait.h> // wait, waitpid
+#include <pthread.h> // hilos POSIX
+#include <sys/types.h> // pid_t y otros tipos
+#include <time.h> // time, medicion de tiempo
+#include <stdint.h> // enteros de tamaño fijo
+#include <sys/mman.h> // memoria compartida (mmap)
+#include <fcntl.h> // flags de apertura (O_CREAT, etc.)
+#include <sys/stat.h> // permisos de archivos
+#include <sys/shm.h> // memoria compartida System V
+#include <string.h> // manejo de strings
+#include <sys/time.h> // gettimeofday
+#include <math.h> // funciones matematicas
+#include <dirent.h> // lectura de directorios
 
 #define READ 0
 #define WRITE 1
 #define CANT 5
 
-/* 
-    Ambos procesos van a enviar varios mensajes entre hijo y padre, es decir
-    los dos van a escribirle y leer, lo del otro. El padre va enviar un mensaje
-    y va a esperar que el hijo le responda antes de mandar otro mensaje
-    El hijo cuando recibe lo escrito por el mama, va a enviar un mensaje al papa
-    Cuando uno de los procesos decide terminar, enviar un mensaje de salida
+
+/*
+    Conversacion intercalada entre padre e hijo mediante pipes.
+    El padre envia un mensaje y espera la respuesta del hijo antes de
+    volver a escribir; el hijo responde a lo que recibe. Cuando alguno
+    de los dos decide terminar, envia un mensaje de salida.
 */
 
-int main() {
+int main()
+{
 
     int pipeFD1[2];
     int pipeFD2[2];
@@ -87,7 +88,7 @@ int main() {
                 break;
             }
             printf("El mensaje del padre es: %s \n", lectura); //escribo sobre el extremo de lectura
-            
+
             write(pipeFD2[WRITE], respuestas[j], strlen(respuestas[j]) + 1);
             if (strcmp(respuestas[j], "salir") == 0) {
                 break;

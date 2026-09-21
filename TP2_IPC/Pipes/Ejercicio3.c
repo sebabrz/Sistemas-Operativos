@@ -1,30 +1,32 @@
-#include <stdio.h>      // printf, fprintf
-#include <stdlib.h>     // malloc, exit, random
-#include <unistd.h>     // fork, exec, getpid, sleep
-#include <sys/wait.h>   // wait, waitpid
-#include <pthread.h>    // hilos POSIX
-#include <sys/types.h>  // pid_t y otros tipos
-#include <time.h>       // time, medicion de tiempo
-#include <stdint.h>     // enteros de tamaño fijo
-#include <sys/mman.h>   // memoria compartida (mmap)
-#include <fcntl.h>      // flags de apertura (O_CREAT, etc.)
-#include <sys/stat.h>   // permisos de archivos
-#include <sys/shm.h>    // memoria compartida System V
-#include <string.h>     // manejo de strings
-#include <sys/time.h>   // gettimeofday
-#include <math.h>       // funciones matematicas
-#include <dirent.h>     // lectura de directorios
+#include <stdio.h> // printf, fprintf
+#include <stdlib.h> // malloc, exit, random
+#include <unistd.h> // fork, exec, getpid, sleep
+#include <sys/wait.h> // wait, waitpid
+#include <pthread.h> // hilos POSIX
+#include <sys/types.h> // pid_t y otros tipos
+#include <time.h> // time, medicion de tiempo
+#include <stdint.h> // enteros de tamaño fijo
+#include <sys/mman.h> // memoria compartida (mmap)
+#include <fcntl.h> // flags de apertura (O_CREAT, etc.)
+#include <sys/stat.h> // permisos de archivos
+#include <sys/shm.h> // memoria compartida System V
+#include <string.h> // manejo de strings
+#include <sys/time.h> // gettimeofday
+#include <math.h> // funciones matematicas
+#include <dirent.h> // lectura de directorios
+
+/*
+    Comunicacion mediante pipes acordando el tamanio del mensaje entre
+    emisor y receptor. El padre envia varios enteros y el hijo los lee
+    de a uno, mostrando por pantalla cada valor leido.
+*/
 
 #define READ 0
 #define WRITE 1
 #define CANT 10
 
-/*
-    Usar un pipe para mandar datos de un proceso padre
-    a un proceso hijo
-*/
-
-int main() {
+int main()
+{
 
     int pipes[2];
     int buffer[CANT];
@@ -43,7 +45,7 @@ int main() {
         exit(1);
     }
 
-    if (pid > 0) {  
+    if (pid > 0) {
         //---- Proceso padre ----
         close(pipes[READ]);
 
@@ -51,7 +53,7 @@ int main() {
             buffer[i] = random() % 9;
             write(pipes[WRITE], &buffer[i], sizeof(buffer[i]));
         }
-        
+
         close(pipes[WRITE]);
         wait(NULL);
     } else if (pid == 0) {

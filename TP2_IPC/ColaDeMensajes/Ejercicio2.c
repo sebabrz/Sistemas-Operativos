@@ -1,43 +1,36 @@
-#include <stdio.h>      // printf, fprintf
-#include <stdlib.h>     // malloc, exit, random
-#include <unistd.h>     // fork, exec, getpid, sleep
-#include <sys/wait.h>   // wait, waitpid
-#include <pthread.h>    // hilos POSIX
-#include <sys/types.h>  // pid_t y otros tipos
-#include <time.h>       // time, medicion de tiempo
-#include <stdint.h>     // enteros de tamaño fijo
-#include <sys/mman.h>   // memoria compartida (mmap)
-#include <fcntl.h>      // flags de apertura (O_CREAT, etc.)
-#include <sys/stat.h>   // permisos de archivos
-#include <sys/shm.h>    // memoria compartida System V
-#include <string.h>     // manejo de strings
-#include <sys/time.h>   // gettimeofday
-#include <math.h>       // funciones matematicas
-#include <dirent.h>     // lectura de directorios
+#include <stdio.h> // printf, fprintf
+#include <stdlib.h> // malloc, exit, random
+#include <unistd.h> // fork, exec, getpid, sleep
+#include <sys/wait.h> // wait, waitpid
+#include <pthread.h> // hilos POSIX
+#include <sys/types.h> // pid_t y otros tipos
+#include <time.h> // time, medicion de tiempo
+#include <stdint.h> // enteros de tamaño fijo
+#include <sys/mman.h> // memoria compartida (mmap)
+#include <fcntl.h> // flags de apertura (O_CREAT, etc.)
+#include <sys/stat.h> // permisos de archivos
+#include <sys/shm.h> // memoria compartida System V
+#include <string.h> // manejo de strings
+#include <sys/time.h> // gettimeofday
+#include <math.h> // funciones matematicas
+#include <dirent.h> // lectura de directorios
 #include <sys/msg.h>
 
-#define KEY ((key_t) (1243))
+#define KEY ((key_t)(1243))
 #define CANT 30
 
 /*
-    Una caracteristica de las colas de mensajes
-    es que los mensajes pueden clasificarse
-    utilizando tipos.
-    Crear tres procesos tal que:
+    Extension del ejercicio anterior de colas de mensajes: se agrega
+    un cuarto proceso que puede leer cualquiera de los dos tipos de
+    mensaje. Al finalizar, cada proceso indica la cantidad de mensajes
+    que leyo.
+*/
 
-    - El procesos principal debe enviar varios mensajes
-    de dos tipos diferentes utilizando una
-    cola de mensajes creada previamente.
-
-    - Cada uno de los restantes procesos lee iterativamente
-    uno de los tipos de mensaje y lo muestra por pantalla.
-
-    - Si no existen mensajes en la cola se debe esperar.
-    
+/*
     - IPC_NOWAIT: si no hay ningun mensaje del tipo pedido en la cola,
 
     - msgrcv() no bloquea al proceso -> devuelve -1 (errno = ENOMSG) al instante.
-    
+
     - Sin este flag, msgrcv() se queda esperando (bloqueado) hasta que llegue un mensaje de ese tipo.
 */
 
@@ -46,7 +39,8 @@ struct mensaje {
     int dato;
 };
 
-int main() {
+int main()
+{
 
     pid_t pid1;
     pid_t pid2;
@@ -62,7 +56,7 @@ int main() {
     }
     printf("Soy el proceso padre mi pid es: %d \n", getpid());
 
-    //llenar la cola de mensajes, con dos mensajes diferentes de tipos diferentes.
+    // llenar la cola de mensajes, con dos mensajes diferentes de tipos diferentes.
     for (int i = 0; i < CANT; i++) {
         struct mensaje mensajes[CANT];
         int tip = random() % 2 + 1;
@@ -155,7 +149,7 @@ int main() {
                 exit(0);
             }
 
-            //espera por ambos hijos
+            // espera por ambos hijos
             wait(NULL);
             wait(NULL);
             wait(NULL);
