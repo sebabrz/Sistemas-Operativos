@@ -24,8 +24,6 @@
     lo muestra por pantalla y responde con "Hola Mundo!".
 */
 
-
-
 int main()
 {
 
@@ -90,5 +88,6 @@ int main()
         write(pipeFD2[WRITE], mensaje2, strlen(mensaje2) + 1);
         close(pipeFD2[WRITE]);
     }
+
     return 0;
 }

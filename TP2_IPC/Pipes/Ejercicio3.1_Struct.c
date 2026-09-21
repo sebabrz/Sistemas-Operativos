@@ -63,6 +63,7 @@ int main()
 
         close(pipes[WRITE]);
         wait(NULL);
+
     } else if (pid == 0) {
         //---- Proceso hijo ----
         close(pipes[WRITE]);

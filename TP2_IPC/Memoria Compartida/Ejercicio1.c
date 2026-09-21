@@ -53,6 +53,7 @@ int main(int argc, char *argv[])
     }
 
     ptr = (struct vocales *)shmat(id, 0, 0);
+
     FILE *archivo;
 
     pid_t vocalA;
@@ -62,6 +63,7 @@ int main(int argc, char *argv[])
     pid_t vocalU;
 
     vocalA = fork();
+
     if (vocalA == 0) {
         ptr->cant_a = 0;
         archivo = fopen(argv[1], "r"); //ejemplo pasando como argumento
@@ -77,6 +79,7 @@ int main(int argc, char *argv[])
         exit(0);
     } else {
         vocalE = fork();
+
         if (vocalE == 0) {
             ptr->cant_e = 0;
             archivo = fopen("texto.txt", "r");
@@ -92,6 +95,7 @@ int main(int argc, char *argv[])
             exit(0);
         } else {
             vocalI = fork();
+
             if (vocalI == 0) {
                 ptr->cant_i = 0;
                 archivo = fopen("texto.txt", "r");
@@ -107,6 +111,7 @@ int main(int argc, char *argv[])
                 exit(0);
             } else {
                 vocalO = fork();
+
                 if (vocalO == 0) {
                     ptr->cant_o = 0;
                     archivo = fopen("texto.txt", "r");
@@ -122,6 +127,7 @@ int main(int argc, char *argv[])
                     exit(0);
                 } else {
                     vocalU = fork();
+
                     if (vocalU == 0) {
                         ptr->cant_u = 0;
                         archivo = fopen("texto.txt", "r");
@@ -146,7 +152,9 @@ int main(int argc, char *argv[])
     wait(NULL);
     wait(NULL);
     wait(NULL);
+
     printf("Se encontraro: A: %d, E: %d, I: %d, O: %d, U: %d \n", ptr->cant_a, ptr->cant_e, ptr->cant_i, ptr->cant_o, ptr->cant_u);
+
     if (shmdt(ptr) == -1) {
         perror("shmdt");
         exit(1);

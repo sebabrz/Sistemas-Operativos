@@ -63,10 +63,12 @@ int main()
     printf("Soy el proceso padre mi pid es: %d \n", getpid());
 
     hamburguesa1 = fork();
+
     if (hamburguesa1 == 0) {
         hamburguesa2 = fork();
         struct pedido hamburguesas[ham];
         int longitudH;
+
         for (int i = 0; i < ham; i++) {
             sleep(1);
             longitudH = sizeof(struct pedido) - sizeof(long);
@@ -74,16 +76,20 @@ int main()
             strcpy(hamburguesas[i].comida, "hamburguesa");
             msgsnd(msqid, &hamburguesas[i], longitudH, 0);
         }
+
         if (hamburguesa2 == 0) {
             exit(0);
         }
+
         wait(NULL);
         exit(0);
     } else {
         papas = fork();
+
         if (papas == 0) {
             struct pedido papas[pa];
             int longitudPa;
+
             for (int i = 0; i < pa; i++) {
                 sleep(5);
                 longitudPa = sizeof(struct pedido) - sizeof(long);
@@ -91,12 +97,15 @@ int main()
                 strcpy(papas[i].comida, "papas");
                 msgsnd(msqid, &papas[i], longitudPa, 0);
             }
+
             exit(0);
         } else {
             pizza = fork();
+
             if (pizza == 0) {
                 struct pedido pizzas[pi];
                 int longitudPi;
+
                 for (int i = 0; i < pi; i++) {
                     sleep(10);
                     longitudPi = sizeof(struct pedido) - sizeof(long);
@@ -104,11 +113,14 @@ int main()
                     strcpy(pizzas[i].comida, "pizza");
                     msgsnd(msqid, &pizzas[i], longitudPi, 0);
                 }
+
                 exit(0);
             }
+            
             struct pedido receptor;
             int longitudR;
             int mostrados = 0;
+
             while (mostrados < pedidos) {
                 longitudR = sizeof(struct pedido) - sizeof(long);
                 if (msgrcv(msqid, &receptor, longitudR, ALTA, IPC_NOWAIT) != -1) {
@@ -132,5 +144,6 @@ int main()
     wait(NULL);
     wait(NULL);
     msgctl(msqid, IPC_RMID, NULL); //libera la cola bye bye
+
     return 0;
 }

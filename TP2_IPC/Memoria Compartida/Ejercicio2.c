@@ -16,8 +16,6 @@
     segmento de memoria compartida para almacenar la matriz resultante.
 */
 
-
-
 struct MatricesCompartida {
     int matrizA[TAMANIO_COL][TAMANIO_COL];
     int matrizB[TAMANIO_COL][TAMANIO_COL];

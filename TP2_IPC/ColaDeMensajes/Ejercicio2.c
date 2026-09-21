@@ -45,8 +45,11 @@ int main()
     pid_t pid1;
     pid_t pid2;
     pid_t pid3;
+
     srandom(time(NULL));
+
     int msqid = msgget(KEY, IPC_CREAT | 0666);
+
     int tipo1 = 0;
     int tipo2 = 0;
 
@@ -54,6 +57,7 @@ int main()
         printf("La cola no pudo crearse");
         exit(1);
     }
+    
     printf("Soy el proceso padre mi pid es: %d \n", getpid());
 
     // llenar la cola de mensajes, con dos mensajes diferentes de tipos diferentes.
@@ -68,6 +72,7 @@ int main()
     }
 
     pid3 = fork();
+
     if (pid3 < 0) {
         printf("Error");
         exit(1);
@@ -90,6 +95,7 @@ int main()
         }
         printf("Proceso 3: Lei %d procesos\n", leidos);
         exit(0);
+
     } else {
 
         pid1 = fork();

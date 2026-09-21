@@ -26,8 +26,6 @@
     y lo muestra por pantalla, esperando si no hay mensajes disponibles.
 */
 
-
-
 /*
     Una caracteristica de las colas de mensajes
     es que los mensajes pueden clasificarse
@@ -55,8 +53,11 @@ int main()
 
     pid_t pid1;
     pid_t pid2;
+
     srandom(time(NULL));
+
     int msqid = msgget(KEY, IPC_CREAT | 0666);
+
     int tipo1 = 0;
     int tipo2 = 0;
 
@@ -64,18 +65,22 @@ int main()
         printf("La cola no pudo crearse");
         exit(1);
     }
+
     printf("Soy el proceso padre mi pid es: %d \n", getpid());
 
     //llenar la cola de mensajes, con dos mensajes diferentes de tipos diferentes.
     for (int i = 0; i < CANT; i++) {
+
         struct mensaje mensajes[CANT];
         int tip = random() % 2 + 1;
         mensajes[i].tipo = tip;
+
         if (tip == 1) {
             tipo1++;
         } else {
             tipo2++;
         }
+
         // strcpy(mensajes[i].texto, "Hola hijo %d, soy de tipo %d", mensajes[i].tipo, mensajes[i].tipo);
         mensajes[i].dato = random() % 5;
         int longitud = sizeof(struct mensaje) - sizeof(long);
@@ -96,11 +101,13 @@ int main()
 
         struct mensaje mensajes1[tipo1];
         int longitud1;
+
         for (int i = 0; i < tipo1; i++) {
             longitud1 = sizeof(struct mensaje) - sizeof(long);
             msgrcv(msqid, &mensajes1[i], longitud1, 1, 0);
             printf("Recibi el mensaje: %d, soy de tipo %ld \n", mensajes1[i].dato, mensajes1[i].tipo);
         }
+
         exit(0);
 
     } else if (pid1 > 0) {
@@ -114,15 +121,18 @@ int main()
 
         if (pid2 == 0) {
             //---- Proceso hijo 2----
+
             printf("Soy el hijo 2 mi pid es: %d mi padre es %d \n", getpid(), getppid());
 
             struct mensaje mensajes2[tipo2];
             int longitud2;
+
             for (int i = 0; i < tipo2; i++) {
                 longitud2 = sizeof(struct mensaje) - sizeof(long);
                 msgrcv(msqid, &mensajes2[i], longitud2, 2, 0);
                 printf("Recibi el mensaje: %d, soy de tipo %ld \n", mensajes2[i].dato, mensajes2[i].tipo);
             }
+            
             exit(0);
         }
 
