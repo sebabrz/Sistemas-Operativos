@@ -20,9 +20,12 @@ Sistemas-Operativos/
 ├── TP2_IPC/
 │   ├── Pipes/
 │   ├── ColaDeMensajes/
-│   └── Memoria Compartida/
-├── Actividad3-Procesos-2026-Multiplicacion/
-├── Actividad3-Procesos-2026-Sudoku/
+│   ├── Memoria Compartida/
+│   ├── PlantillasIPC/
+│   └── apunte_ipc.md
+├── Actividades/
+│   ├── Actividad3-Procesos-2026-Multiplicacion/
+│   └── Actividad3-Procesos-2026-Sudoku/
 ├── ProgramasRandoms/
 ├── maru/
 └── plantillaMain.c
@@ -30,8 +33,8 @@ Sistemas-Operativos/
 
 - **`Diapositivas/`** — Diapositivas de la cátedra (Clases 1 a 12), usadas como referencia teórica para todo el resto del repo.
 - **`TP1_ProcesosHilos/`** — Trabajo práctico de procesos e hilos (`fork()`, `pthread`, identificación de procesos, suma de matrices con hilos y con procesos, etc.), organizado por ejercicio.
-- **`TP2_IPC/`** — Trabajo práctico de comunicación entre procesos (IPC): pipes, colas de mensajes y memoria compartida, con la API System V (`msgget`/`msgsnd`/`msgrcv`, `shmget`/`shmat`/`shmdt`). Tiene su propio README con el detalle de cada ejercicio.
-- **`Actividad3-Procesos-2026-Multiplicacion/`** y **`Actividad3-Procesos-2026-Sudoku/`** — Actividades sobre procesos: multiplicación de matrices y resolución de Sudoku en paralelo.
+- **`TP2_IPC/`** — Trabajo práctico de comunicación entre procesos (IPC): pipes, colas de mensajes y memoria compartida, con la API System V (`msgget`/`msgsnd`/`msgrcv`, `shmget`/`shmat`/`shmdt`). Incluye `PlantillasIPC/` con plantillas base para cada mecanismo y `apunte_ipc.md` con apuntes teóricos del tema.
+- **`Actividades/`** — Actividades sobre procesos, con una subcarpeta por actividad (por ahora, multiplicación de matrices y resolución de Sudoku en paralelo).
 - **`ProgramasRandoms/`** — Programas sueltos de práctica sin atarse a un TP puntual (recursividad, procesos zombie, medición de tiempos, matrices, etc.). Es la carpeta más variable del repo: crece con ejercicios nuevos a medida que aparecen.
 - **`maru/`** — Otra tanda de ejercicios sobre los mismos temas (procesos, hilos, pipes, colas, memoria compartida), resueltos con distintos enfoques a modo de comparación/práctica extra. También va sumando contenido con el tiempo.
 - **`plantillaMain.c`** — Esqueleto base (includes típicos + `main()` vacío) usado como punto de partida al arrancar un ejercicio nuevo.
