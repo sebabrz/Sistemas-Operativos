@@ -136,6 +136,7 @@ int main()
                     mostrados++;
                     sleep(random() % 3 + 3);
                 }
+                sleep(random() % 3 + 3);
             }
         }
     }
