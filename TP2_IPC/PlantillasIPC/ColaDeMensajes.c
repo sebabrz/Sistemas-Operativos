@@ -48,8 +48,7 @@ int main()
         // ===== LÓGICA DEL RECEPTOR (hijo) =====
         // TODO: recibir mensajes con msgrcv y procesarlos
         // Bloqueante, tipo exacto:        msgrcv(msqid, &msg, longitud, 1, 0);
-        // No bloqueante, cualquier tipo:  msgrcv(msqid, &msg, longitud, 0, IPC_NOWAIT);
-        // Prioridad (tipo <= N):          msgrcv(msqid, &msg, longitud, -N, IPC_NOWAIT);
+        // Prioridad (tipo <= N):          msgrcv(msqid, &msg, longitud, -N, 0);
         if (msgrcv(msqid, &msg, longitud, 0, 0) == -1) { perror("msgrcv"); exit(1); }
         // printf("Recibi: %d, tipo %ld\n", msg.dato, msg.tipo);
 

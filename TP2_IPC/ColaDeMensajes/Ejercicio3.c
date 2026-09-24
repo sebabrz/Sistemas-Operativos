@@ -1,19 +1,9 @@
 #include <stdio.h> // printf, fprintf
 #include <stdlib.h> // malloc, exit, random
 #include <unistd.h> // fork, exec, getpid, sleep
-#include <sys/wait.h> // wait, waitpid
-#include <pthread.h> // hilos POSIX
 #include <sys/types.h> // pid_t y otros tipos
 #include <time.h> // time, medicion de tiempo
-#include <stdint.h> // enteros de tamaño fijo
-#include <sys/mman.h> // memoria compartida (mmap)
-#include <fcntl.h> // flags de apertura (O_CREAT, etc.)
-#include <sys/stat.h> // permisos de archivos
-#include <sys/shm.h> // memoria compartida System V
 #include <string.h> // manejo de strings
-#include <sys/time.h> // gettimeofday
-#include <math.h> // funciones matematicas
-#include <dirent.h> // lectura de directorios
 #include <sys/msg.h>
 
 #define KEY ((key_t)(13))
@@ -22,129 +12,82 @@
 #define BAJA 3
 
 /*
-    Simulacion de pedidos de comida respetando prioridades mediante
-    una cola de mensajes: hamburguesas (2 procesos, cada 1s) tienen
-    prioridad baja, papas (cada 5s) prioridad media y pizza (cada 10s)
-    prioridad alta. Un unico receptor muestra por pantalla cada pedido
-    respetando las prioridades, esperando entre 3 y 5 segundos entre
-    cada lectura.
+    Simulacion de pedidos de comida respetando prioridades, todo
+    bloqueante (sin IPC_NOWAIT):
+    - Procesos 0 y 1: piden hamburguesa cada 1s, prioridad baja.
+    - Proceso 2: pide papas cada 5s, prioridad media.
+    - Proceso 3: pide pizza cada 10s, prioridad alta.
+    - El receptor (proceso original) lee con msgtyp = -BAJA, que trae
+      siempre el pedido de mayor prioridad disponible y bloquea si no
+      hay ninguno. Entre pedido y pedido espera 3 a 5 segundos.
 */
-
 
 struct pedido {
     long prioridad;
     char comida[30];
 };
 
-int main()
-{
-
-    pid_t hamburguesa1;
-    pid_t hamburguesa2;
-    pid_t papas;
-    pid_t pizza;
+int main() {
     srandom(time(NULL));
-    int msqid = msgget(KEY, IPC_CREAT | 0666);
-    int ham = 0;
-    int pa = 0;
-    int pi = 0;
-    printf("Ingrese la cantidad de hamburguesas: \n");
-    scanf(" %d", &ham);
-    printf("Ingrese la cantidad de papas: \n");
-    scanf(" %d", &pa);
-    printf("Ingrese la cantidad de pizzas: \n");
-    scanf(" %d", &pi);
-    int pedidos = ham + pa + pi;
 
+    int msqid = msgget(KEY, IPC_CREAT | 0666);
     if (msqid == -1) {
-        printf("La cola no pudo crearse");
+        printf("La cola no pudo crearse\n");
         exit(1);
     }
-    printf("Soy el proceso padre mi pid es: %d \n", getpid());
 
-    hamburguesa1 = fork();
+    pid_t pid;
 
-    if (hamburguesa1 == 0) {
-        hamburguesa2 = fork();
-        struct pedido hamburguesas[ham];
-        int longitudH;
+    // [0] y [1] hamburguesa, [2] papas, [3] pizza.
+    long prioridades[4] = { BAJA, BAJA, MEDIA, ALTA };
+    int  tiempos[4]     = { 1,    1,    5,     10   };
+    char nombres[4][30] = { "hamburguesa", "hamburguesa", "papas", "pizza" };
 
-        for (int i = 0; i < ham; i++) {
-            sleep(1);
-            longitudH = sizeof(struct pedido) - sizeof(long);
-            hamburguesas[i].prioridad = BAJA;
-            strcpy(hamburguesas[i].comida, "hamburguesa");
-            msgsnd(msqid, &hamburguesas[i], longitudH, 0);
+    for (int i = 0; i < 4; i++) {
+        pid = fork();
+
+        if (pid < 0) {
+            printf("Error");
+            exit(1);
         }
 
-        if (hamburguesa2 == 0) {
-            exit(0);
-        }
+        if (pid == 0) {
+            //soy uno de los 4 procesos que piden comida
+            struct pedido pedido;
+            int longitud = sizeof(struct pedido) - sizeof(long);
 
-        wait(NULL);
-        exit(0);
-    } else {
-        papas = fork();
+            pedido.prioridad = prioridades[i];
+            strcpy(pedido.comida, nombres[i]);
 
-        if (papas == 0) {
-            struct pedido papas[pa];
-            int longitudPa;
+            while (1) {
+                sleep(tiempos[i]);
 
-            for (int i = 0; i < pa; i++) {
-                sleep(5);
-                longitudPa = sizeof(struct pedido) - sizeof(long);
-                papas[i].prioridad = MEDIA;
-                strcpy(papas[i].comida, "papas");
-                msgsnd(msqid, &papas[i], longitudPa, 0);
-            }
+                printf("Se envio del pedido de %s", pedido.comida);
 
-            exit(0);
-        } else {
-            pizza = fork();
-
-            if (pizza == 0) {
-                struct pedido pizzas[pi];
-                int longitudPi;
-
-                for (int i = 0; i < pi; i++) {
-                    sleep(10);
-                    longitudPi = sizeof(struct pedido) - sizeof(long);
-                    pizzas[i].prioridad = ALTA;
-                    strcpy(pizzas[i].comida, "pizza");
-                    msgsnd(msqid, &pizzas[i], longitudPi, 0);
+                if (msgsnd(msqid, &pedido, longitud, 0) == -1) {
+                    printf("Error al mandar el pedido\n");
                 }
-
-                exit(0);
-            }
-            
-            struct pedido receptor;
-            int longitudR;
-            int mostrados = 0;
-
-            while (mostrados < pedidos) {
-                longitudR = sizeof(struct pedido) - sizeof(long);
-                if (msgrcv(msqid, &receptor, longitudR, ALTA, IPC_NOWAIT) != -1) {
-                    printf("Pedido N°: %d, Pedido: %s, Prioridad: %ld\n", mostrados + 1, receptor.comida, receptor.prioridad);
-                    mostrados++;
-                    sleep(random() % 3 + 3);
-                } else if (msgrcv(msqid, &receptor, longitudR, MEDIA, IPC_NOWAIT) != -1) {
-                    printf("Pedido N°: %d, Pedido: %s, Prioridad: %ld\n", mostrados + 1, receptor.comida, receptor.prioridad);
-                    mostrados++;
-                    sleep(random() % 3 + 3);
-                } else if (msgrcv(msqid, &receptor, longitudR, BAJA, IPC_NOWAIT) != -1) {
-                    printf("Pedido N°: %d, Pedido: %s, Prioridad: %ld\n", mostrados + 1, receptor.comida, receptor.prioridad);
-                    mostrados++;
-                    sleep(random() % 3 + 3);
-                }
-                sleep(random() % 3 + 3);
             }
         }
     }
 
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
-    msgctl(msqid, IPC_RMID, NULL); //libera la cola bye bye
+    // ===== receptor: despues de crear los 4 =====
+    struct pedido receptor;
+    int longitudR = sizeof(struct pedido) - sizeof(long);
+    int mostrados = 0;
 
+    while (1) {
+        if (msgrcv(msqid, &receptor, longitudR, -3, 0) == -1) {
+            perror("msgrcv");
+            exit(1);
+        }
+
+        mostrados++;
+        printf("Pedido Nro %d: %s, Prioridad: %ld\n", mostrados, receptor.comida, receptor.prioridad);
+
+        sleep(random() % 3 + 3);
+    }
+
+    msgctl(msqid, IPC_RMID, NULL);
     return 0;
 }

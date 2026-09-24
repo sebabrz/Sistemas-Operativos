@@ -240,7 +240,7 @@ for (int i = 0; i < N; i++) {
 | `msgget()`, `msgsnd()`, `msgrcv()`, `msgctl()` | Sistema Operativo: IPC (colas de mensajes) |
 | `shmget()`, `shmat()`, `shmdt()`, `shmctl()` | Sistema Operativo: IPC (memoria compartida) |
 
-Regla rápida: si la función te devuelve un file descriptor, un PID, o gestiona un recurso del kernel (cola, segmento, pipe) → es SO. Si solo trabaja con la memoria de tu propio proceso sin pedirle nada al kernel → es C.
+Regla rápida: si la función te devuelve un file descriptor, un PID, o gestiona un recurso del kernel (cola, segmento) → es SO. Si solo trabaja con la memoria de tu propio proceso sin pedirle nada al kernel → es C.
 
 ## Comparación rápida
 
