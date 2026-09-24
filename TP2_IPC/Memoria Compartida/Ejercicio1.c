@@ -25,140 +25,47 @@
 
 #define KEY (key_t)(1234)
 #define SIZE sizeof(struct vocales)
+#define CANT_VOCALES 5
 
 struct vocales {
-    int cant_a;
-    int cant_e;
-    int cant_i;
-    int cant_o;
-    int cant_u;
+    int cant[CANT_VOCALES]; // 0=a, 1=e, 2=i, 3=o, 4=u
 };
-/*
-    argc (argument count) → cuántos argumentos se pasaron, contando el nombre del programa.
-    argv (argument vector) → array de strings con esos argumentos. argv[0] siempre es el nombre del ejecutable, 
-    argv[1] es el primer argumento real (tu archivo), etc.
-    esto es para el txt que me van a pasar al ejecutar ./programa archivo.txt, el fopen hace fopen(argv[1], "modo")
-*/
 
-
-int main(int argc, char *argv[])
-{
-    
+int main() {
     int id = shmget(KEY, SIZE, IPC_CREAT | 0666);
-    int c = 0;
-
-    if (id < 0) {
-        printf("fallo el shmget");
-        exit(2);
-    }
 
     struct vocales *ptr = (struct vocales *)shmat(id, 0, 0);
 
-    FILE *archivo;
+    char letras[CANT_VOCALES] = {'a', 'e', 'i', 'o', 'u'};
+    pid_t pid;
 
-    pid_t vocalA;
-    pid_t vocalE;
-    pid_t vocalI;
-    pid_t vocalO;
-    pid_t vocalU;
+    for (int i = 0; i < CANT_VOCALES; i++) {
+        pid = fork();
+        if (pid == 0) {
+            // ===== soy uno de los 5 hijos, mi vocal es letras[i] =====
+            int c;
+            ptr->cant[i] = 0;
 
-    vocalA = fork();
+            FILE *archivo = fopen("vocales.txt", "r");
 
-    if (vocalA == 0) {
-        ptr->cant_a = 0;
-        archivo = fopen(argv[1], "r"); //ejemplo pasando como argumento
-        while ((c = fgetc(archivo)) != EOF) {
-            if ((char)c == 'a') {
-                ptr->cant_a++;
-            }
-        }
-        if (shmdt(ptr) == -1) {
-            perror("shmdt");
-            exit(1);
-        }
-        exit(0);
-    } else {
-        vocalE = fork();
-
-        if (vocalE == 0) {
-            ptr->cant_e = 0;
-            archivo = fopen("texto.txt", "r");
             while ((c = fgetc(archivo)) != EOF) {
-                if ((char)c == 'e') {
-                    ptr->cant_e++;
+                if ((char)c == letras[i]) {
+                    ptr->cant[i]++;
                 }
             }
-            if (shmdt(ptr) == -1) {
-                perror("shmdt");
-                exit(1);
-            }
+
+            printf("Soy el proceso %d termine \n", i);
+            fclose(archivo);
             exit(0);
-        } else {
-            vocalI = fork();
-
-            if (vocalI == 0) {
-                ptr->cant_i = 0;
-                archivo = fopen("texto.txt", "r");
-                while ((c = fgetc(archivo)) != EOF) {
-                    if ((char)c == 'i') {
-                        ptr->cant_i++;
-                    }
-                }
-                if (shmdt(ptr) == -1) {
-                    perror("shmdt");
-                    exit(1);
-                }
-                exit(0);
-            } else {
-                vocalO = fork();
-
-                if (vocalO == 0) {
-                    ptr->cant_o = 0;
-                    archivo = fopen("texto.txt", "r");
-                    while ((c = fgetc(archivo)) != EOF) {
-                        if ((char)c == 'o') {
-                            ptr->cant_o++;
-                        }
-                    }
-                    if (shmdt(ptr) == -1) {
-                        perror("shmdt");
-                        exit(1);
-                    }
-                    exit(0);
-                } else {
-                    vocalU = fork();
-
-                    if (vocalU == 0) {
-                        ptr->cant_u = 0;
-                        archivo = fopen("texto.txt", "r");
-                        while ((c = fgetc(archivo)) != EOF) {
-                            if ((char)c == 'u') {
-                                ptr->cant_u++;
-                            }
-                        }
-                        if (shmdt(ptr) == -1) {
-                            perror("shmdt");
-                            exit(1);
-                        }
-                        exit(0);
-                    }
-                }
-            }
         }
     }
 
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
-    wait(NULL);
-
-    printf("Se encontraro: A: %d, E: %d, I: %d, O: %d, U: %d \n", ptr->cant_a, ptr->cant_e, ptr->cant_i, ptr->cant_o, ptr->cant_u);
-
-    if (shmdt(ptr) == -1) {
-        perror("shmdt");
-        exit(1);
+    for (int i = 0; i < CANT_VOCALES; i++) {
+        wait(NULL);
     }
+
+    printf("Se encontraron: A: %d, E: %d, I: %d, O: %d, U: %d \n", ptr->cant[0], ptr->cant[1], ptr->cant[2], ptr->cant[3], ptr->cant[4]);
+
     shmctl(id, IPC_RMID, NULL);
 
     return 0;

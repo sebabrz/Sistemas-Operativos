@@ -10,6 +10,7 @@
 #define TAMANIO_FIL 9
 #define CANT_PROCESOS 9
 #define KEY ((key_t)(1243))
+#define SIZE sizeof(struct MatricesCompartida)
 
 /*
     Suma paralela de dos matrices de 9x9 utilizando procesos y un
@@ -59,19 +60,13 @@ int main()
 
     srandom(time(NULL));
 
-    // shmget crea (o se asocia a) el segmento de memoria compartida
-    // parametros: KEY identifica el segmento, sizeof(...) es el tamaño en bytes,
-    // IPC_CREAT crea el segmento si no existe, 0666 son los permisos
-    int shmid = shmget(KEY, sizeof(struct MatricesCompartida), IPC_CREAT | 0666);
+    int shmid = shmget(KEY, SIZE , IPC_CREAT | 0666);
 
     if (shmid == -1) {
         printf("Error al crear el segmento de memoria\n");
         exit(1);
     }
 
-    // shmat mapea el segmento al espacio de direcciones de este proceso
-    // parametros: shmid es el segmento a mapear, 0 deja que el sistema elija la direccion,
-    // 0 en shmflg significa lectura y escritura
     struct MatricesCompartida *ptr = (struct MatricesCompartida *)shmat(shmid, 0, 0);
 
     if (ptr == (void *)-1) {
@@ -104,7 +99,7 @@ int main()
         }
     }
 
-    if (pid > 0) {
+
         for (int i = 0; i < CANT_PROCESOS; i++) {
             wait(NULL);
         }
@@ -114,7 +109,6 @@ int main()
 
         shmdt(ptr); // el padre se desvincula
         shmctl(shmid, IPC_RMID, NULL); // se elimina el segmento del sistema
-    }
 
     return 0;
 }
