@@ -2,63 +2,89 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
-#include <string.h>
 #include <ctype.h>
+
 #define READ 0
 #define WRITE 1
 
-struct mensaje{
-    int conteo;
+struct mensaje {
     char vocal;
+    int cantidad;
 };
 
-int main(int argc, char *argv[])
-{
-    // NO TOCAR: creación de los pipes
-    // Si el ejercicio es unidireccional, borrar pipeFD2 y todo lo que lo usa.
-    int pipeFD[2]; // padre -> hijo // hijo -> padre
-    char vocales[5]={'a', 'e', 'i', 'o', 'u'};
-    struct mensaje msj;
-    FILE *archivo;
-    if (pipe(pipeFD) == -1) {
-        perror("Error al crear pipeFD");
-        exit(1);
-        }
-    for(int i=0;i<5;i++){
-        pid_t pid;
-        
-        int cantidad=0;
-        pid=fork();
-        if (pid < 0) {
-            printf("Error al crear proceso");
+int main() {
+
+    char vocales[5] = {'a', 'e', 'i', 'o', 'u'};
+    int pipeFD[5][2];
+
+    for (int i = 0; i < 5; i++) {
+        if (pipe(pipeFD[i]) == -1) {
+            perror("Error al crear pipe");
             exit(1);
         }
-        if(pid==0){
-            sleep(5);
-            int c=0;
-            close(pipeFD[READ]);
-            archivo=fopen("vocales.txt", "r");
-            while((c=fgetc(archivo))!=EOF){
+    }
 
-                if(vocales[i]== (char) tolower(c)){
+    pid_t pid;
+
+    for (int i = 0; i < 5; i++) {
+
+        pid = fork();
+
+        if (pid < 0) {
+            printf("Error al crear proceso\n");
+            exit(1);
+        }
+
+        if (pid == 0) {
+            // ===== soy el hijo i, cuento la vocal vocales[i] =====
+
+            // cierro todos los extremos de lectura (no me sirve ninguno)
+            for (int j = 0; j < 5; j++) {
+                close(pipeFD[j][READ]);
+            }
+            // cierro los extremos de escritura de los OTROS pipes
+            for (int j = 0; j < 5; j++) {
+                if (j != i) {               //Si soy I no cierro mi extremo de escritura.
+                    close(pipeFD[j][WRITE]);
+                }
+            }
+
+            FILE *archivo = fopen("asd.txt", "r");
+
+            int cantidad = 0;
+            int c;
+            while ((c = fgetc(archivo)) != EOF) {
+                if (c == vocales[i]) {
                     cantidad++;
                 }
             }
-            msj.conteo=cantidad;
-            msj.vocal=vocales[i];
-            write(pipeFD[WRITE], &msj, sizeof(msj));
-            close(pipeFD[WRITE]);
+
+            struct mensaje msj;
+            msj.vocal = vocales[i];
+            msj.cantidad = cantidad;
+
+            write(pipeFD[i][WRITE], &msj, sizeof(msj));
+            close(pipeFD[i][WRITE]);
             exit(0);
         }
     }
 
-    close(pipeFD[WRITE]);
-    for(int i=0; i<5; i++){
-        wait(NULL);
-        read(pipeFD[READ], &msj, sizeof(msj));
-        printf("Se encontraron %d vocales %c\n", msj.conteo, msj.vocal);
+    // PADRE; cierro todos los extremos de escritura, no los uso
+    for (int i = 0; i < 5; i++) {
+        close(pipeFD[i][WRITE]);
     }
-    close(pipeFD[READ]);
-   
+
+    struct mensaje msj;
+    for (int i = 0; i < 5; i++) {
+        read(pipeFD[i][READ], &msj, sizeof(msj));
+        printf("Se encontraron %d apariciones de la vocal %c\n", msj.cantidad, msj.vocal);
+        close(pipeFD[i][READ]);
+    }
+
+    //Los 5 procesos calculan en paralelo , pero el padre los muestrad 
+    for (int i = 0; i < 5; i++) {
+        wait(NULL);
+    }
+
     return 0;
 }
