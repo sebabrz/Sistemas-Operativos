@@ -1,0 +1,13 @@
+Cosas a tener en cuenta para el labo
+1. Liberar de memoria la cola/memoria compartidad
+    -msgctl(msqid, IPC_RMID, NULL) para colas
+    -shm_unlink y shmdt para liberar los punteros
+2. Inicializar las variables con = 0 o algo si algun numero da raro o basura
+3. Comparar el msgrcv con != -1 o == -1
+4. Usar el IPC_NOWAIT para que sea no bloqueante
+5. El modo ("r") define qué podés hacer:
+
+"r" → lectura, el archivo tiene que existir (si no, fopen te devuelve NULL).
+"w" → escritura, lo crea si no existe, y si existe le borra todo el contenido.
+"a" → escritura al final (append), sin borrar lo que ya había.
+"r+" → lectura y escritura, el archivo tiene que existir.
