@@ -1,15 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <string.h>
-
 #define READ 0
 #define WRITE 1
 #define BUFF 100 // MODIFICAR: tamaño del mensaje si hace falta
 
-int main()
-{
+int main() {
     // NO TOCAR: creación de los pipes
     // Si el ejercicio es unidireccional, borrar pipeFD2 y todo lo que lo usa.
     int pipeFD1[2]; // padre -> hijo
@@ -18,21 +11,12 @@ int main()
 
     pid_t pid;
 
-    if (pipe(pipeFD1) == -1) {
-        perror("Error al crear pipeFD1");
-        exit(1);
-    }
-    if (pipe(pipeFD2) == -1) {
-        perror("Error al crear pipeFD2");
+    if (pipe(pipeFD1) == -1 || pipe(pipeFD2) == -1 ) {
+        perror("Error al crear pipes");
         exit(1);
     }
 
     pid = fork();
-
-    if (pid < 0) {
-        printf("Error al crear proceso");
-        exit(1);
-    }
 
     if (pid > 0) {
         //---- Proceso padre ----
@@ -40,8 +24,6 @@ int main()
         close(pipeFD1[READ]);
         close(pipeFD2[WRITE]);
 
-        // ===== LÓGICA DEL PADRE =====
-        // TODO: implementar lo que pide el ejercicio
         // ejemplo escribir: write(pipeFD1[WRITE], mensaje, strlen(mensaje) + 1);
         // ejemplo leer:     read(pipeFD2[READ], mensaje, sizeof(mensaje));
         // Si el mensaje no es texto sino un struct (enteros, tipo+contenido, etc.),
@@ -57,7 +39,6 @@ int main()
         close(pipeFD1[WRITE]);
         close(pipeFD2[READ]);
 
-        // ===== LÓGICA DEL HIJO =====
         // TODO: implementar lo que pide el ejercicio
         // ejemplo leer:     read(pipeFD1[READ], mensaje, sizeof(mensaje));
         // ejemplo escribir: write(pipeFD2[WRITE], mensaje, strlen(mensaje) + 1);

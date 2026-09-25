@@ -1,12 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-#include <sys/msg.h>
-
 #define KEY ((key_t) (9999)) // MODIFICAR: elegir una key que no se pise con otro ejercicio
 
-// MODIFICAR SEGÚN EL EJERCICIO: contenido del mensaje
 struct mensaje {
     long tipo; // NO TOCAR: siempre va primero, lo exigen msgsnd/msgrcv
     int dato;
@@ -51,9 +44,7 @@ int main()
         // Prioridad (tipo <= N):          msgrcv(msqid, &msg, longitud, -N, 0);
         if (msgrcv(msqid, &msg, longitud, 0, 0) == -1) { perror("msgrcv"); exit(1); }
         // printf("Recibi: %d, tipo %ld\n", msg.dato, msg.tipo);
-
         exit(0);
     }
-
     return 0;
 }
