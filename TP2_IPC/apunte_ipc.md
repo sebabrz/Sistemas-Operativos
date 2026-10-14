@@ -187,6 +187,7 @@ fclose(archivo);
   - Devuelve `EOF` si llegó al final del archivo o si hay un error de lectura. `EOF` es una constante (típicamente `-1`) definida en `stdio.h`, por eso el patrón clásico es: `int c; while ((c = fgetc(archivo)) != EOF) { /* procesar c */ }` 
   - Se puede castear a `(char)` devuelta.
 
+
 ### Para recordar
 - Chequeá siempre que `fopen` no haya devuelto `NULL` antes de usar el `FILE*` mismo espíritu que chequear `pid < 0` en `fork()` o el retorno de `msgget`/`shmget`.
 - `fopen`/`fread`/`fwrite`/`fclose` son C (stdio, con buffer): no confundir con `open()`/`read()`/`write()`/`close()`, que son las syscalls "crudas" que ya usás para pipes (esas sí son SO puro, sin buffer intermedio).
