@@ -1,0 +1,890 @@
+==============================================================================
+SINCRONIZACIÓN EN C - APUNTE
+==============================================================================
+==============================================================================
+1. BASE: HILOS Y HEADERS EN C
+==============================================================================
+
+Headers [LIBRO Sec. 7.3]
+    #include <pthread.h>      // hilos, mutex, variables de condición
+    #include <semaphore.h>    // semáforos POSIX
+    #include <stdlib.h>       // rand()  (lo usa el Project 4)
+    // sleep(...) para simular trabajo (Project 4, Project 2)
+
+Hilos con Pthreads [LIBRO Cap. 4, Fig. 4.22 y Sec. 4.6]
+    pthread_t tid;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_create(&tid, &attr, runner, NULL);   // crea el hilo
+    pthread_join(tid, NULL);                     // espera que termine
+    pthread_exit(0);                             // termina el hilo actual
+
+    void *runner(void *param) { ... }            // función que corre el hilo
+
+    En el libro también aparece pthread_create(&tid, 0, worker, NULL)
+    (atributos en 0 = por defecto).
+
+Hilos - convenciones de la cursada [CLASE: Procesos - Hilos]
+    int pthread_create(pthread_t *thread, pthread_attr_t *attr,
+                       void *(*start_routine)(void *), void *arg);
+        thread        : identificador único del nuevo hilo (lo devuelve la
+                        rutina)
+        attr          : atributos del hilo; la cátedra recomienda NULL (deja
+                        la configuración que viene inicializada)
+        start_routine : rutina que va a ejecutar el nuevo hilo
+        arg           : parámetro que se le puede pasar a la rutina
+    void pthread_exit(void *retval);     // indica que el hilo terminó
+                                         // ej.: pthread_exit(NULL);
+    int  pthread_join(pthread_t thread, void **retval);
+                                         // espera que termine un hilo creado
+                                         // por el proceso
+                                         // ej.: pthread_join(hilos[i], NULL);
+
+    Formas de declarar los identificadores:
+        pthread_t hilo;       // un hilo
+        pthread_t hilo[10];   // arreglo de 10 hilos
+        pthread_t *hilos;     // varios hilos como puntero: la diapositiva
+                              // avisa que "puede traer problemas"
+    Rutina de ejecución:
+        void *mythread(void *data);
+        pthread_create(&hilos[i], NULL, mythread, NULL);
+    Otra forma que aparece en clase:
+        pthread_t reader;
+        pthread_create(&reader, NULL, (void *)&lecto, NULL);
+    Pasar un entero como parámetro (patrón de las actividades):
+        pthread_create(&hilo[i], NULL, mihilo, (void *) (intptr_t) i);
+        void *mihilo(void *data) {
+            int j = (intptr_t) data;     // recupera el entero
+            ...
+        }
+    Esquema de la clase: el hilo master hace pthread_create(); los hilos
+    trabajadores realizan su trabajo y terminan con pthread_exit(); el master
+    espera con pthread_join().
+    Compilar: hay que incluir la librería pthread en la línea de comando,
+    sino no compila. Ejemplo de la cátedra:
+        gcc -lpthread -o ej ejemplo.c
+    [MIO] Si te tira "undefined reference to pthread_create", probá poner
+    -lpthread DESPUÉS del .c:   gcc -o ej ejemplo.c -lpthread
+    (algunos linkers procesan las librerías en el orden en que aparecen).
+    Headers [CLASE]: las diapositivas dicen que el manual (man) indica qué
+    librerías incluir para que compile.
+
+Pasar varios parámetros a un hilo [LIBRO Cap. 4, Project 1 Sudoku]
+    typedef struct { int row; int column; } parameters;
+    parameters *data = (parameters *) malloc(sizeof(parameters));
+    data->row = 1; data->column = 1;
+    /* ... pthread_create(..., data) ... */
+    El puntero data llega como parámetro a la función del hilo.
+
+==============================================================================
+2. MUTEX
+==============================================================================
+
+TEORÍA [LIBRO Sec. 6.5]
+  - Es la herramienta más simple. "mutex" = mutual exclusion.
+  - Hay que adquirir el lock antes de entrar a la sección crítica y liberarlo
+    al salir.
+  - Tiene una variable booleana "available":
+        acquire() {
+            while (!available)
+                ;                    /* busy wait */
+            available = false;
+        }
+        release() {
+            available = true;
+        }
+  - acquire() y release() tienen que ejecutarse ATÓMICAMENTE (se pueden
+    implementar con CAS; es el ejercicio 6.16).
+  - Esta versión hace busy waiting: se llama también SPINLOCK, porque el
+    proceso "gira" esperando.
+  - Ventaja del spinlock: no hay cambio de contexto al esperar. Regla general
+    del libro: usar spinlock si el lock se va a retener menos de dos cambios de
+    contexto (esperar en un lock cuesta dos cambios de contexto).
+  - Lock contended = un hilo se bloquea al intentar tomarlo. Uncontended =
+    estaba libre. Alta contención baja el rendimiento.
+
+POSIX [LIBRO Sec. 7.3.1]
+    #include <pthread.h>
+    pthread_mutex_t mutex;
+
+    pthread_mutex_init(&mutex, NULL);   // crear/inicializar (NULL = atributos
+                                        // por defecto)
+    pthread_mutex_lock(&mutex);         // adquirir
+    /* sección crítica */
+    pthread_mutex_unlock(&mutex);       // liberar
+
+  - Si el mutex está tomado, pthread_mutex_lock bloquea al hilo hasta que el
+    dueño llame a pthread_mutex_unlock.
+  - Todas las funciones devuelven 0 si anduvo bien y un código distinto de 0
+    si hubo error.
+
+
+==============================================================================
+3. SEMÁFOROS
+==============================================================================
+
+TEORÍA [LIBRO Sec. 6.6]
+  - Un semáforo S es una variable entera que, salvo la inicialización, solo
+    se toca con dos operaciones atómicas: wait() y signal().
+    (Dijkstra: wait era P, "proberen"; signal era V, "verhogen".)
+        wait(S)   { while (S <= 0) ; S--; }     // versión con busy waiting
+        signal(S) { S++; }
+  - Contador (counting): su valor puede ser cualquier entero.
+    Binario: solo 0 o 1; se comporta como un mutex. Si el sistema no tiene
+    mutex, se puede usar un semáforo binario.
+
+Usos [LIBRO Sec. 6.6.1]
+  a) Exclusión mutua: semáforo binario en 1; wait() antes, signal() después.
+  b) Controlar un recurso con N instancias: se inicializa en N. Cada proceso
+     hace wait() para usar una y signal() al devolverla. Con valor 0, todas
+     están en uso y los que lleguen se bloquean.
+  c) Ordenar ejecución: S2 debe correr después de S1.
+        semáforo synch compartido, inicializado en 0
+        P1:  S1;  signal(synch);
+        P2:  wait(synch);  S2;
+     Como synch arranca en 0, P2 espera hasta que P1 haga signal.
+
+Implementación sin busy waiting [LIBRO Sec. 6.6.2]
+    typedef struct { int value; struct process *list; } semaphore;
+
+    wait(semaphore *S) {
+        S->value--;
+        if (S->value < 0) {
+            add this process to S->list;
+            sleep();
+        }
+    }
+    signal(semaphore *S) {
+        S->value++;
+        if (S->value <= 0) {
+            remove a process P from S->list;
+            wakeup(P);
+        }
+    }
+  - sleep() suspende al proceso; wakeup(P) lo pasa de waiting a ready.
+    Son system calls del SO.
+  - Acá el valor PUEDE SER NEGATIVO: si es negativo, su módulo es la cantidad
+    de procesos esperando.
+  - La lista suele ser una cola FIFO (garantiza espera acotada), pero el uso
+    correcto no depende de la política de cola.
+  - wait() y signal() deben ser atómicos: en un solo procesador se logra
+    inhibiendo interrupciones; en multicore hay que usar CAS o spinlocks. El
+    busy waiting no desaparece del todo: se mueve a las secciones críticas
+    de wait()/signal(), que son muy cortas.
+
+POSIX [LIBRO Sec. 7.3.2]
+    Equivalencias:   wait()  ->  sem_wait()      signal() ->  sem_post()
+    Nota: los semáforos no son parte del estándar POSIX base, son la
+    extensión POSIX SEM. Linux los soporta (nombrados y sin nombre) desde el
+    kernel 2.6.
+
+  Semáforo CON NOMBRE (sirve entre procesos no relacionados)
+    sem_t *sem;
+    sem = sem_open("SEM", O_CREAT, 0666, 1);
+        "SEM"    : nombre
+        O_CREAT  : lo crea si no existe
+        0666     : permisos de lectura/escritura para otros procesos
+        1        : valor inicial
+    Otro proceso que llame a sem_open con los mismos parámetros recibe un
+    descriptor al semáforo existente.
+    sem_wait(sem);
+    /* sección crítica */
+    sem_post(sem);
+
+  Semáforo SIN NOMBRE
+    sem_t sem;
+    sem_init(&sem, 0, 1);
+        1er parámetro: puntero al semáforo
+        2do parámetro: nivel de compartición
+                       0         -> solo hilos del proceso que lo creó
+                       distinto de 0 -> entre procesos, pero hay que ponerlo
+                                    en una región de memoria compartida
+        3er parámetro: valor inicial
+    sem_wait(&sem);
+    /* sección crítica */
+    sem_post(&sem);
+
+  Como con los mutex, todas las funciones devuelven 0 si anduvieron bien y
+  distinto de 0 si hubo error.
+
+
+==============================================================================
+4. VARIABLES DE CONDICIÓN (POSIX)
+==============================================================================
+
+[LIBRO Sec. 7.3.3]
+  - En el libro las variables de condición aparecen primero dentro de un
+    monitor (Sec. 6.7). Como C no tiene monitores, en Pthreads el locking se
+    logra ASOCIANDO la variable de condición a un mutex.
+
+    pthread_mutex_t mutex;
+    pthread_cond_t  cond_var;
+    pthread_mutex_init(&mutex, NULL);
+    pthread_cond_init(&cond_var, NULL);
+
+  Esperar una condición (ejemplo del libro: a == b)
+    pthread_mutex_lock(&mutex);
+    while (a != b)
+        pthread_cond_wait(&cond_var, &mutex);
+    pthread_mutex_unlock(&mutex);
+
+  Avisar
+    pthread_mutex_lock(&mutex);
+    a = b;
+    pthread_cond_signal(&cond_var);
+    pthread_mutex_unlock(&mutex);
+
+  Reglas que marca el libro:
+   1) El mutex asociado tiene que estar TOMADO antes de llamar a
+      pthread_cond_wait (protege los datos de la condición de una race
+      condition).
+   2) pthread_cond_wait LIBERA el mutex mientras espera, así otro hilo puede
+      modificar los datos.
+   3) La condición se chequea dentro de un while (no un if), para volver a
+      verificarla cuando lo despiertan.
+   4) pthread_cond_signal despierta a UN hilo que espera en esa variable y NO
+      libera el mutex. Lo libera el pthread_mutex_unlock que viene después;
+      recién ahí el hilo despertado se hace dueño del mutex y retorna de
+      pthread_cond_wait.
+
+
+==============================================================================
+5. MONITORES
+==============================================================================
+
+TEORÍA [LIBRO Sec. 6.7]
+  - Por qué existen: usar mal semáforos/mutex da errores de timing difíciles
+    de detectar (solo ocurren con ciertas secuencias de ejecución). Basta que
+    UN proceso se porte mal (por ejemplo, olvida el signal) para romper todo.
+  - Un monitor es un tipo abstracto de datos: variables compartidas + funciones
+    que las manipulan. Las variables solo se acceden desde las funciones del
+    monitor, y las funciones solo acceden a variables del monitor y a sus
+    parámetros.
+  - Garantía: SOLO UN proceso activo dentro del monitor a la vez. El
+    programador no tiene que codificar la exclusión mutua.
+  - Variables de condición: "condition x, y;". Solo admiten dos operaciones:
+        x.wait()    suspende al proceso hasta que otro haga x.signal()
+        x.signal()  reanuda EXACTAMENTE un proceso suspendido. Si no hay
+                    ninguno, no tiene ningún efecto (a diferencia del signal
+                    de un semáforo, que siempre cambia el valor del semáforo).
+  - Qué pasa cuando P hace x.signal() y hay un Q suspendido (los dos no pueden
+    estar activos a la vez):
+        1. Signal and wait: P espera a que Q salga del monitor (o espere otra
+           condición).
+        2. Signal and continue: Q espera a que P salga (o espere otra cond.).
+        Compromiso: P sale del monitor inmediatamente al hacer signal.
+    Argumento a favor de signal-and-continue: P ya estaba ejecutando. En
+    contra: cuando Q se reanuda, la condición que esperaba puede haber dejado
+    de valer.
+  - Conditional wait: x.wait(c) donde c es un "número de prioridad"; con
+    x.signal() se reanuda el proceso con menor número. Ejemplo: monitor
+    ResourceAllocator (Fig. 6.14):
+        monitor ResourceAllocator {
+            boolean busy;
+            condition x;
+            void acquire(int time) {
+                if (busy) x.wait(time);
+                busy = true;
+            }
+            void release() {
+                busy = false;
+                x.signal();
+            }
+            initialization code() { busy = false; }
+        }
+        Uso: R.acquire(t); ...usar el recurso...; R.release();
+  - Límite del monitor: no puede garantizar que los procesos respeten la
+    secuencia acquire -> usar -> release. Pueden: acceder sin pedir permiso,
+    no liberar nunca, liberar algo que nunca pidieron, o pedir dos veces sin
+    liberar.
+
+Monitor implementado con semáforos [LIBRO Sec. 6.7.2] (signal-and-wait)
+    Por cada monitor:  mutex (binario, init 1), next (binario, init 0),
+                       next_count (int, init 0)
+    Cada función externa F se reemplaza por:
+        wait(mutex);
+        ...cuerpo de F...
+        if (next_count > 0) signal(next);
+        else                signal(mutex);
+
+    Por cada condición x:  x_sem (binario, init 0), x_count (int, init 0)
+    x.wait():
+        x_count++;
+        if (next_count > 0) signal(next);
+        else                signal(mutex);
+        wait(x_sem);
+        x_count--;
+    x.signal():
+        if (x_count > 0) {
+            next_count++;
+            signal(x_sem);
+            wait(next);
+            next_count--;
+        }
+
+MONITORES EN C
+  - C NO tiene monitores [LIBRO Sec. 7.3.3]. Se arma con mutex + variable de
+    condición de Pthreads. Los proyectos del libro que lo piden son el
+    Project 3 (filósofos con mutex y condition variables POSIX) y el ejercicio
+    6.34 (resource manager con monitor).
+  - [MIO] Cómo se traduce:
+        entrar al monitor (inicio de cada función) -> pthread_mutex_lock(&m)
+        salir del monitor (fin de cada función)    -> pthread_mutex_unlock(&m)
+        x.wait()                                   -> pthread_cond_wait(&x,&m)
+                                                      dentro de un while
+        x.signal()                                 -> pthread_cond_signal(&x)
+  - [MIO] Diferencia a tener en cuenta: en Pthreads el signal no libera el
+    mutex (el que despierta sigue adentro hasta el unlock). Por eso el libro
+    pide chequear la condición en un while al despertar.
+
+
+==============================================================================
+6. ATÓMICAS Y SOPORTE DE HARDWARE
+==============================================================================
+
+Barreras de memoria [LIBRO Sec. 6.4.1]
+  - Los procesadores pueden reordenar instrucciones y los cambios en memoria
+    de un procesador pueden no verse enseguida en otro (modelo "weakly
+    ordered"). Una memory barrier (o memory fence) fuerza que todos los loads
+    y stores se completen antes de seguir.
+  - Son operaciones de muy bajo nivel, típicamente usadas por desarrolladores
+    del kernel.
+
+test_and_set [LIBRO Fig. 6.5 y 6.6] (se ejecuta atómicamente)
+    boolean test_and_set(boolean *target) {
+        boolean rv = *target;
+        *target = true;
+        return rv;
+    }
+    Exclusión mutua con lock inicializado en false:
+        do {
+            while (test_and_set(&lock))
+                ;                      /* do nothing */
+            /* sección crítica */
+            lock = false;
+            /* sección restante */
+        } while (true);
+
+compare_and_swap (CAS) [LIBRO Fig. 6.7 y 6.8] (se ejecuta atómicamente)
+    int compare_and_swap(int *value, int expected, int new_value) {
+        int temp = *value;
+        if (*value == expected)
+            *value = new_value;
+        return temp;                   // SIEMPRE devuelve el valor original
+    }
+    Exclusión mutua con lock global inicializado en 0:
+        while (true) {
+            while (compare_and_swap(&lock, 0, 1) != 0)
+                ;                      /* do nothing */
+            /* sección crítica */
+            lock = 0;
+            /* sección restante */
+        }
+    - Cumple exclusión mutua pero NO espera acotada. El libro da otra versión
+      (Fig. 6.9) con arreglo waiting[n] que sí cumple los tres requisitos.
+    - En x86, CAS se implementa con la instrucción cmpxchg con prefijo lock.
+
+Variables atómicas [LIBRO Sec. 6.4.3]
+  - CAS casi no se usa directo para exclusión mutua; es un bloque para
+    construir otras herramientas. Una es la variable atómica: operaciones
+    atómicas sobre tipos básicos (enteros, booleanos).
+  - Ejemplo del libro (pseudocódigo genérico): incrementar el entero
+    atómico "sequence":
+        increment(&sequence);
+        void increment(atomic_int *v) {
+            int temp;
+            do {
+                temp = *v;
+            } while (temp != compare_and_swap(v, temp, temp+1));
+        }
+  - LÍMITE importante: las atómicas dan actualizaciones atómicas pero NO
+    resuelven todas las race conditions. Ejemplo del libro: buffer acotado con
+    un count atómico. Buffer vacío, dos consumidores girando en
+    "while (count == 0)". El productor mete UN ítem, count pasa a 1, y los dos
+    consumidores salen del while y consumen aunque hay un solo ítem.
+  - Se usan para actualizaciones simples de datos compartidos (contadores,
+    generadores de secuencia).
+
+API de atómicas de Linux (del KERNEL) [LIBRO Sec. 7.2.2]
+    atomic_t counter;
+    int value;
+    atomic_set(&counter, 5);        counter = 5
+    atomic_add(10, &counter);       counter = counter + 10
+    atomic_sub(4, &counter);        counter = counter - 4
+    atomic_inc(&counter);           counter = counter + 1
+    value = atomic_read(&counter);  lee el valor
+  - Son eficientes para un contador porque no tienen el costo de los locks,
+    pero solo sirven en ese tipo de situaciones; si varias variables
+    contribuyen a la race condition hay que usar locks más completos.
+  - Ojo: esto es la API que el libro describe para el kernel de Linux, no la
+    de programas de usuario con Pthreads.
+  - También del kernel de Linux: mutex_lock() / mutex_unlock() (el hilo duerme
+    si el mutex está tomado), spinlocks y semáforos (con versiones
+    reader-writer). Spinlocks y mutex del kernel son NO recursivos (si ya lo
+    tenés, un segundo intento sin soltarlo se bloquea).
+
+
+==============================================================================
+7. TABLA RESUMEN
+==============================================================================
+
+ Concepto (libro)          | Operación              | En C (POSIX)
+ --------------------------+------------------------+-------------------------
+ Mutex lock                | acquire() / release()  | pthread_mutex_init
+                           |                        | pthread_mutex_lock
+                           |                        | pthread_mutex_unlock
+ Semáforo                  | wait() / signal()      | sem_init / sem_open
+                           |                        | sem_wait / sem_post
+ Variable de condición     | x.wait() / x.signal()  | pthread_cond_init
+ (en monitor)              |                        | pthread_cond_wait
+                           |                        | pthread_cond_signal
+ Monitor                   | funciones del monitor  | no existe en C:
+                           |                        | mutex + cond var
+ Atómicas                  | increment(), atomic_*  | pseudo-código del libro /
+                           |                        | API del kernel de Linux
+ Hilos                     | -                      | pthread_create
+                           |                        | pthread_join
+                           |                        | pthread_exit
+
+==============================================================================
+8. LOS EJEMPLOS DE SINCRONIZACIÓN EXPLICADOS
+==============================================================================
+
+------------------------------------------------------------------------------
+8.1  RACE CONDITION CON count++ / count--   [LIBRO Sec. 6.1]
+------------------------------------------------------------------------------
+Contexto: buffer acotado donde se agrega una variable count (items en el
+buffer). El productor hace count++, el consumidor count--.
+
+El problema: count++ no es una instrucción. En máquina son tres:
+    register1 = count
+    register1 = register1 + 1
+    count = register1
+y count-- también:
+    register2 = count
+    register2 = register2 - 1
+    count = register2
+
+Intercalado del libro, con count = 5:
+    T0: productor  register1 = count            {register1 = 5}
+    T1: productor  register1 = register1 + 1    {register1 = 6}
+    T2: consumidor register2 = count            {register2 = 5}
+    T3: consumidor register2 = register2 - 1    {register2 = 4}
+    T4: productor  count = register1            {count = 6}
+    T5: consumidor count = register2            {count = 4}   <-- INCORRECTO
+Lo correcto es 5 (se agregó uno y se sacó uno). Si T4 y T5 se invierten,
+queda en 6. Entonces el resultado puede ser 4, 5 o 6.
+
+Definición del libro: race condition = varios procesos acceden y manipulan
+los mismos datos concurrentemente y el resultado depende del orden en que
+ocurren los accesos.
+
+[MIO] En criollo: dos personas leen en una pizarra "5". Una escribe "6" y la
+otra escribe "4", cada una partiendo del 5 que leyó. La última que escribe
+pisa a la otra.
+
+Otro ejemplo del libro (Fig. 6.2): dos procesos hacen fork() a la vez y la
+variable del kernel next_available_pid vale 2615. Los dos piden pid y los dos
+reciben 2615: mismo identificador para dos procesos distintos.
+Otras estructuras del kernel con riesgo: lista de archivos abiertos,
+asignación de memoria, listas de procesos, manejo de interrupciones.
+
+------------------------------------------------------------------------------
+8.2  PRODUCTOR-CONSUMIDOR (BUFFER ACOTADO)   [LIBRO Sec. 7.1.1]
+------------------------------------------------------------------------------
+Datos compartidos (el pool tiene n buffers, cada uno para un ítem):
+    int n;
+    semaphore mutex = 1;     // exclusión mutua sobre el acceso al buffer
+    semaphore empty = n;     // cuenta buffers vacíos
+    semaphore full  = 0;     // cuenta buffers llenos
+
+Productor (Fig. 7.1)                    Consumidor (Fig. 7.2)
+    while (true) {                          while (true) {
+        /* producir item */                     wait(full);
+        wait(empty);                            wait(mutex);
+        wait(mutex);                            /* sacar item del buffer */
+        /* agregar item al buffer */            signal(mutex);
+        signal(mutex);                          signal(empty);
+        signal(full);                           /* consumir item */
+    }                                       }
+
+Qué hace cada semáforo:
+  - empty: el productor no puede meter si no hay lugar (si vale 0, espera).
+  - full: el consumidor no puede sacar si no hay nada (si vale 0, espera).
+  - mutex: que no entren los dos a tocar el buffer al mismo tiempo.
+El libro marca la SIMETRÍA: se puede ver como que el productor produce
+buffers llenos para el consumidor, o el consumidor produce buffers vacíos
+para el productor.
+
+[MIO] Traza con n = 2 (empty=2, full=0, mutex=1), consumidor llega primero:
+    Consumidor: wait(full) -> full vale 0 -> SE BLOQUEA.
+    Productor:  wait(empty) -> empty=1
+                wait(mutex) -> mutex=0
+                agrega el ítem
+                signal(mutex) -> mutex=1
+                signal(full)  -> full=1 y despierta al consumidor
+    Consumidor: sigue desde wait(full), toma mutex, saca el ítem,
+                signal(mutex), signal(empty) -> empty=2.
+[MIO] Orden importante: wait(empty)/wait(full) van ANTES que wait(mutex). Si
+fuera al revés, un productor con el buffer lleno podría quedarse esperando
+dentro del mutex y bloquear al consumidor que lo liberaría.
+
+Variante pedida por el libro:
+  - Ejercicio 7.3: qué cambia para usar un mutex en vez de semáforo binario.
+  - Project 4: semáforos contadores para empty y full + mutex lock (no
+    semáforo binario); buffer circular de BUFFER_SIZE = 5 con insert_item() y
+    remove_item() (devuelven 0 si OK, -1 si error); main recibe: tiempo de
+    sleep, cantidad de productores, cantidad de consumidores.
+
+------------------------------------------------------------------------------
+8.3  LECTORES-ESCRITORES   [LIBRO Sec. 7.1.2]
+------------------------------------------------------------------------------
+Situación: una base de datos compartida. Los lectores solo leen; los
+escritores actualizan. Dos lectores a la vez no hacen daño. Un escritor con
+cualquier otro (lector o escritor) sí. Por eso los escritores necesitan acceso
+exclusivo.
+
+Variantes (todas involucran prioridades):
+  - Primer problema: ningún lector espera salvo que un escritor ya tenga
+    permiso. O sea, un lector no espera a otros lectores solo porque haya un
+    escritor esperando. Puede causar inanición de ESCRITORES.
+  - Segundo problema: si un escritor está listo, escribe lo antes posible: si
+    hay un escritor esperando, no pueden empezar nuevos lectores. Puede
+    causar inanición de LECTORES.
+
+Solución del libro al PRIMER problema:
+    semaphore rw_mutex = 1;
+    semaphore mutex = 1;
+    int read_count = 0;
+
+Escritor (Fig. 7.3)             Lector (Fig. 7.4)
+    while (true) {                  while (true) {
+        wait(rw_mutex);                 wait(mutex);
+        /* escribir */                  read_count++;
+        signal(rw_mutex);               if (read_count == 1)
+    }                                       wait(rw_mutex);
+                                        signal(mutex);
+                                        /* leer */
+                                        wait(mutex);
+                                        read_count--;
+                                        if (read_count == 0)
+                                            signal(rw_mutex);
+                                        signal(mutex);
+                                    }
+
+Cómo funciona (según el libro):
+  - rw_mutex es común a lectores y escritores. Los escritores lo usan para
+    exclusión mutua. Lo usan también el PRIMER lector que entra y el ÚLTIMO
+    que sale. Los lectores que entran o salen mientras hay otros leyendo no
+    lo tocan.
+  - mutex protege la actualización de read_count.
+  - read_count = cuántos procesos están leyendo ahora.
+  - Si un escritor está en la sección crítica y hay n lectores esperando, UN
+    lector queda en cola en rw_mutex y los otros n-1 quedan en cola en mutex.
+  - Cuando el escritor hace signal(rw_mutex), puede reanudarse tanto a los
+    lectores en espera como a un escritor en espera: lo decide el scheduler.
+
+[MIO] Traza: 
+R1 llega: read_count=1 -> es el primero -> wait(rw_mutex)
+(rw_mutex=0). 
+R2 llega: read_count=2, no toca rw_mutex -> leen los dos a la
+vez. 
+Llega un escritor W: wait(rw_mutex) -> se BLOQUEA.
+R1 sale: read_count=1.
+R2 sale: read_count=0 -> signal(rw_mutex) -> W despierta.
+Y si mientras W espera llega R3 y todavía hay lectores adentro: R3 entra
+igual (primer problema) -> por eso los escritores pueden sufrir inanición.
+
+Locks reader-writer: el problema se generalizó a locks que se piden en modo
+lectura o escritura. Varios procesos pueden tenerlo en modo lectura; solo uno
+en modo escritura. El libro dice que son útiles cuando es fácil identificar
+quién solo lee y quién solo escribe, y cuando hay más lectores que escritores
+(tienen más overhead que un semáforo o mutex, y la concurrencia extra lo
+compensa).
+
+------------------------------------------------------------------------------
+8.4  FILÓSOFOS COMENSALES   [LIBRO Sec. 7.1.3]
+------------------------------------------------------------------------------
+Situación: cinco filósofos piensan y comen. Mesa circular, cinco sillas, un
+tazón de arroz en el centro y cinco palillos, uno entre cada par de
+filósofos. Para comer, un filósofo hambriento levanta los dos palillos que
+tiene al lado, de a uno por vez, y no puede agarrar uno que ya tiene un
+vecino. Con los dos en la mano come sin soltarlos; al terminar los baja y
+vuelve a pensar.
+
+El libro lo presenta porque representa la necesidad de repartir varios
+recursos entre varios procesos SIN deadlock y SIN inanición.
+
+Solución con semáforos (Sec. 7.1.3.1): un semáforo por palillo.
+    semaphore chopstick[5];     // todos inicializados en 1
+
+Filósofo i (Fig. 7.6)
+    while (true) {
+        wait(chopstick[i]);
+        wait(chopstick[(i+1) % 5]);
+        /* comer */
+        signal(chopstick[i]);
+        signal(chopstick[(i+1) % 5]);
+        /* pensar */
+    }
+  - Garantiza que dos vecinos no coman a la vez, pero hay que DESCARTARLA
+    porque puede dar DEADLOCK: si los cinco tienen hambre a la vez y cada uno
+    agarra su palillo izquierdo, todos los chopstick quedan en 0. Cuando
+    cada uno intenta el derecho, se bloquea para siempre.
+
+Remedios que menciona el libro:
+  1. Permitir como máximo cuatro filósofos sentados a la vez.
+  2. Agarrar los dos palillos solo si ambos están libres (hay que levantarlos
+     en una sección crítica).
+  3. Solución asimétrica: los impares agarran primero el izquierdo y después
+     el derecho; los pares, al revés.
+  Ojo (libro): sin deadlock no implica sin inanición; una solución
+  satisfactoria también tiene que evitar que un filósofo muera de hambre.
+
+Solución con monitor (Sec. 7.1.3.2, Fig. 7.7): libre de deadlock, con la
+restricción de que un filósofo levanta los palillos solo si AMBOS están
+disponibles.
+    monitor DiningPhilosophers {
+        enum {THINKING, HUNGRY, EATING} state[5];
+        condition self[5];
+
+        void pickup(int i) {
+            state[i] = HUNGRY;
+            test(i);
+            if (state[i] != EATING)
+                self[i].wait();
+        }
+        void putdown(int i) {
+            state[i] = THINKING;
+            test((i + 4) % 5);
+            test((i + 1) % 5);
+        }
+        void test(int i) {
+            if ((state[(i + 4) % 5] != EATING) &&
+                (state[i] == HUNGRY) &&
+                (state[(i + 1) % 5] != EATING)) {
+                state[i] = EATING;
+                self[i].signal();
+            }
+        }
+        initialization code() {
+            for (int i = 0; i < 5; i++) state[i] = THINKING;
+        }
+    }
+    Uso del filósofo i:
+        DiningPhilosophers.pickup(i);
+        ... comer ...
+        DiningPhilosophers.putdown(i);
+
+  - Un filósofo i solo puede pasar a EATING si sus dos vecinos no están
+    comiendo y él está HUNGRY. Eso asegura que dos vecinos nunca comen a la
+    vez y que no hay deadlock.
+  - El libro aclara que un filósofo puede morir de inanición con esta
+    solución (no la resuelve, la deja como ejercicio).
+
+[MIO] Traza: el filósofo 1 está EATING. El 2 llama pickup(2): state[2] =
+HUNGRY; test(2) ve que el vecino 1 come -> no cambia nada; state[2] != EATING
+-> self[2].wait() y queda dormido. Cuando 1 termina: putdown(1): state[1] =
+THINKING; test(0); test(2). En test(2): vecinos (1 y 3) no comen y state[2] es
+HUNGRY -> state[2] = EATING y self[2].signal() lo despierta.
+[MIO] Por qué (i+4)%5 e (i+1)%5: son los vecinos de la izquierda y la
+derecha en la mesa circular.
+
+Para C: Project 3 del libro lo pide con POSIX (mutex + variables de
+condición), con funciones pickup_forks(int philosopher_number) y
+return_forks(int philosopher_number), cinco hilos (0..4) que duermen entre 1
+y 3 segundos para simular pensar y comer.
+
+------------------------------------------------------------------------------
+8.5  DEADLOCK CON DOS MUTEX   [LIBRO Sec. 8.2]
+------------------------------------------------------------------------------
+Se crean dos mutex (first_mutex y second_mutex) con pthread_mutex_init y dos
+hilos que tienen acceso a ambos (thread_one corre do_work_one(), thread_two
+corre do_work_two()):
+  - thread_one intenta tomar: (1) first_mutex, (2) second_mutex.
+  - thread_two intenta tomar: (1) second_mutex, (2) first_mutex.
+Hay deadlock posible si thread_one toma first_mutex mientras thread_two toma
+second_mutex: cada uno espera el mutex que tiene el otro.
+
+[MIO] Es el mismo patrón que los filósofos: cada uno tiene un recurso y pide
+el que tiene el otro. Orden distinto de adquisición = riesgo de deadlock.
+
+Otro ejemplo de falla de liveness del libro (ejercicio 6.24): usar
+    wait(mutex);
+    ...sección crítica...
+    wait(mutex);        <- debería ser signal(mutex)
+El segundo wait se bloquea para siempre y además nadie puede entrar más.
+
+Inversión de prioridades [LIBRO Sec. 6.8.2]: tres procesos L < M < H en
+prioridad. H necesita un semáforo S que tiene L. M se vuelve ejecutable y
+desaloja a L. Así M (de menor prioridad que H) termina afectando cuánto
+espera H. Solución típica: protocolo de herencia de prioridad: L hereda
+temporalmente la prioridad de H hasta soltar el recurso; así M no lo
+desaloja y H corre después.
+
+
+==============================================================================
+9. COSAS QUE NO ENCONTRÉ EN EL LIBRO (para no inventar)
+==============================================================================
+En el texto del PDF que revisé no aparecen, y por eso no las incluí como
+contenido del libro:
+  - pthread_mutex_destroy, sem_destroy, sem_close / sem_unlink
+  - pthread_cond_broadcast, pthread_cond_timedwait
+  - <stdatomic.h> / atomics de C11 en espacio de usuario (el libro usa
+    pseudocódigo genérico y la API del kernel de Linux)
+  - pthread_rwlock_*
+Si los necesitás para un TP, ahí ya hay que ir a las man pages
+(man 3 <función>), que NO es Silberschatz.
+
+
+==============================================================================
+10. CONVENCIONES DE LA CURSADA  [CLASE]  (diapositivas KMC © 2025)
+==============================================================================
+Toda esta sección sale de las diapositivas "Procesos - Hilos" y
+"Comunicación entre procesos". NO es del libro. Ojo con las diferencias con
+Silberschatz (por ejemplo, memoria compartida: acá System V; en el libro,
+POSIX con shm_open/mmap).
+
+------------------------------------------------------------------------------
+10.1  PROCESOS  [CLASE: Procesos - Hilos]
+------------------------------------------------------------------------------
+    pid_t fork(void);        // crea un proceso hijo (familia UNIX/Linux)
+        int pid;
+        pid = fork();
+        if (pid > 0)  { /* en el proceso PADRE */ }
+        else {
+            if (pid == 0) { /* en el proceso HIJO */ }
+            else          { /* error al crear el proceso */ }
+        }
+        exit(0);
+
+    pid_t wait(int *wstatus);   // espera hasta que un proceso hijo termine
+        wait(NULL);             // en el padre
+        (la diapositiva marca también la existencia de waitpid)
+
+    int execve(const char *pathname, char *const argv[], char *const envp[]);
+        reemplaza la imagen actual del proceso por una nueva imagen ejecutable
+        char *args[] = {"ps", "-ax", 0};
+        char *env[]  = { 0 };
+        execve("/bin/ps", args, env);
+        printf("Error ....\n");          // la diapositiva pone esto después
+
+    int execlp(const char *file, const char *arg, ... /* (char *) NULL */);
+        execlp("ps", "ps", "ax", NULL);
+        printf("Error ....\n");
+
+    La familia exec() reemplaza la imagen del proceso; las más usadas son
+    execlp y execv.
+    [MIO] Como exec reemplaza la imagen, el printf de error que viene después
+    solo se alcanza si exec falló.
+
+------------------------------------------------------------------------------
+10.2  MEMORIA COMPARTIDA SYSTEM V  [CLASE: IPC]
+------------------------------------------------------------------------------
+Pasos (el mismo esquema para todos los procesos que la usan):
+    1. Crear el segmento (el primero) o vincularse a uno existente: shmget
+    2. Mapear el segmento al espacio de direcciones del proceso: shmat
+    3. Leer / escribir (como en cualquier dirección de memoria del proceso)
+    4. Desvincular el segmento: shmdt
+
+    int   shmget(key_t key, size_t size, int shmflg);
+    char *shmat(int shmid, void *shmaddr, int shmflg);
+    int   shmdt(void *shmaddr);
+
+Definiciones del ejemplo de clase:
+    struct info {
+        char mensaje[255];                 /* dato del segmento */
+    };
+    #define KEY     ((key_t) (1243))       /* número de llave */
+    #define SEGSIZE sizeof(struct info)    /* longitud del segmento */
+
+Proceso que CREA el segmento:
+    struct info *ctrl;
+    id = shmget(KEY, SEGSIZE, IPC_CREAT | 0666);
+    if (id < 0) { printf("Error fallo el shmget\n"); exit(1); }
+    ctrl = (struct info *) shmat(id, 0, 0);
+    if (ctrl <= (struct info *) (0)) { printf("Error fallo shmat\n"); exit(2); }
+    strcpy(ctrl->mensaje, "Sistemas Operativos");   // valor inicial
+
+Proceso que se VINCULA a uno existente:
+    id = shmget(KEY, SEGSIZE, 0);
+    if (id < 0) { printf("FALLO EL shmget\n"); exit(1); }
+    ctrl = (struct info *) shmat(id, 0, 0);
+    if (ctrl <= (struct info *) (0)) { printf("Error en el shmat\n"); exit(2); }
+    if (argc == 1) strcpy(ctrl->mensaje, "\0");
+    else           strcpy(ctrl->mensaje, argv[1]);
+
+Desvincular:
+    resul = shmdt(ctrl);
+
+Advertencia de la diapositiva (marcada "IMPORTANTE"): por ser una zona de
+memoria compartida, hay que tener cuidado cuando se la utiliza.
+[MIO] Ahí es donde entra la sincronización de este apunte: el ejemplo de
+clase escribe y lee ctrl->mensaje sin ninguna herramienta de sincronización,
+así que dos procesos tocando el segmento a la vez serían una race condition
+(ver 8.1).
+[MIO] Para compartir un semáforo SIN NOMBRE entre procesos, el libro dice
+que hay que ponerlo en una región de memoria compartida (sem_init con el
+flag distinto de 0). En la cursada, esa región vendría de shmget/shmat
+(esto último es combinación mía de ambas fuentes: probalo antes de darlo por
+hecho).
+
+------------------------------------------------------------------------------
+10.3  COLAS DE MENSAJES SYSTEM V  [CLASE: IPC]
+------------------------------------------------------------------------------
+Pasos: 1) crear/asociar la cola (msgget); 2) enviar/recibir (msgsnd, msgrcv).
+
+    int msgget(key_t key, int msgflg);
+        queueID = msgget(key, IPC_CREAT|0666);   // crea y asocia
+        queueID = msgget(key, 0666);             // solo asocia
+
+    Formato del mensaje: el PRIMER campo es long tipo (define el tipo de
+    mensaje) y va en todas las estructuras:
+        struct mensaje {
+            long tipo;
+            int  dato_1;
+            int  dato_2;
+        };
+
+    int msgsnd(int msqid, struct msgbuf *msgp, int msgsz, int msgflg);
+    int msgrcv(int msqid, struct msgbuf *msgp, int msgsz, long msgtyp,
+               int msgflg);
+
+    Qué mensaje devuelve msgrcv según msgtyp:
+        msgtyp = 0  -> el primer mensaje de la cola, sin importar su tipo
+        msgtyp > 0  -> el primer mensaje del tipo msgtyp
+        msgtyp < 0  -> el primer mensaje cuyo tipo sea menor o igual al valor
+                       absoluto de msgtyp y, a la vez, el menor de todos
+
+    Longitud del mensaje (no se cuenta el campo tipo):
+        longitud = sizeof(struct mensaje) - sizeof(long);
+
+    Emisor:
+        idmsg = msgget(key, IPC_CREAT|0666);
+        mimensaje.tipo = 1;
+        mimensaje.dato_1 = 24;
+        mimensaje.dato_2 = 4;
+        longitud = sizeof(struct mensaje) - sizeof(long);
+        if (msgsnd(idmsg, &mimensaje, longitud, 0) == -1) {
+            printf("Error en la escritura mensaje\n");
+            exit(1);
+        }
+    Receptor:
+        idmsg = msgget(key, 0666);
+        longitud = sizeof(struct mensaje) - sizeof(long);
+        if (msgrcv(idmsg, &mimensaje, longitud, 0, 0) == -1) {
+            printf("Error en la lectura mensaje\n");
+            exit(1);
+        }
+
+------------------------------------------------------------------------------
+10.4  ESTILO QUE SE REPITE EN LAS DIAPOSITIVAS  [CLASE]
+------------------------------------------------------------------------------
+  - Atributos de hilo en NULL en pthread_create.
+  - Esperar hilos con pthread_join(hilo[i], NULL) y procesos hijos con
+    wait(NULL).
+  - Chequear el retorno de shmget (id < 0), de shmat (ctrl <= (struct info *)
+    (0)) y de msgsnd / msgrcv (== -1); ante error: mensaje con printf y
+    exit(1) / exit(2).
+  - Pasar enteros a los hilos con el cast (void *) (intptr_t) i.
+  - Los mensajes llevan siempre "long tipo" como primer campo.
