@@ -1,83 +1,129 @@
-#include <stdio.h>      // printf, fprintf
-#include <stdlib.h>     // malloc, exit, random
-#include <unistd.h>     // fork, exec, getpid, sleep
-#include <sys/wait.h>   // wait, waitpid
-#include <pthread.h>    // hilos POSIX
-#include <sys/types.h>  // pid_t y otros tipos
-#include <stdint.h>     // enteros de tamaño fijo
-#include <string.h>     // manejo de strings
+//------------------------------ AGREGO LOS INCLUDE -------------------------------//
+#include <stdio.h>
+#include <pthread.h>
 #include <semaphore.h>
-#include <time.h>
+#include <stdlib.h>
+#include <unistd.h>
 
-sem_t vacio;
-sem_t lleno;
-sem_t abejasRestantes;
+//--------------------- AGREGOS LOS DEFINE (de ser necesario) ---------------------//
+#define N_HOMBRES 4
+#define N_MUJERES 4
+#define CAPACIDAD 3
 
-void *rutina_abeja(){
+//--------------------------- DECLARACION DE LOS HILOS ----------------------------//
+pthread_t hilosHombres[N_HOMBRES];
+pthread_t hilosMujeres[N_MUJERES];
+
+//------------------------- DECLARACION DE LOS SEMAFOROS --------------------------//
+sem_t salon;           //binario: exclusion entre generos
+sem_t cupo;            //contador: maximo 3 personas adentro
+sem_t hombresAdentro;  //contador: cuantos hombres pasaron por la entrada
+sem_t mujeresAdentro;  //contador: cuantas mujeres pasaron por la entrada
+pthread_mutex_t mutexHombres; //protege hombresAdentro
+pthread_mutex_t mutexMujeres; //protege mujeresAdentro
+
+//----------------------------------- RUTINAS -------------------------------------//
+void *hombres(void *arg){
     while(1){
-        printf("Una abeja se fija si hay porciones para poner\n");
-        sem_wait(&vacio);//si hay porciones para poner, pone una, sino es porque el oso esta comiendo
-        printf("Una abeja pone una porcion\n");
-        if(sem_trywait(&abejasRestantes)!=0){//si nadie mas tiene que poner es porque soy la ultima, asique
-            printf("La ultima abeja avisa al oso\n");
-            sem_post(&lleno);//aviso al oso
+        usleep(100000); //espera un rato antes de ir al salon
+
+        pthread_mutex_lock(&mutexHombres);
+        if(sem_trywait(&hombresAdentro) == 0){ //ya habia algun hombre
+            sem_post(&hombresAdentro);         //devuelvo lo que saque al preguntar
+        } else{                                //estaba en 0: soy el primero
+            sem_wait(&salon);
         }
-        sleep(2);
+        sem_post(&hombresAdentro);             //me sumo
+        pthread_mutex_unlock(&mutexHombres);
+
+        sem_wait(&cupo); //lugar libre (maximo 3)
+        printf("Un hombre entra al salon.\n");
+        usleep(200000);  //recibe el servicio
+        printf("Un hombre sale del salon.\n");
+        sem_post(&cupo);
+
+        pthread_mutex_lock(&mutexHombres);
+        sem_wait(&hombresAdentro);             //me resto
+        if(sem_trywait(&hombresAdentro) == 0){ //queda algun hombre
+            sem_post(&hombresAdentro);         //devuelvo lo que saque al preguntar
+        } else{                                //quedo en 0: era el ultimo
+            sem_post(&salon);
+        }
+        pthread_mutex_unlock(&mutexHombres);
     }
+    return NULL;
 }
 
-void *rutina_oso(void *arg){
-    int M=*(int *)arg;
+void *mujeres(void *arg){
     while(1){
-        printf("El oso duerme \n");
-        sem_wait(&lleno);//esta dormido inicialmente y se despierta cuando las abejas le dicen que esta lleno con el signal(lleno)
-        printf("El oso se despierta\n");
+        usleep(100000);
 
-        //el oso libera todas las vacantes antes que las M porciones, para que una abeja no llene con la porcion que recien libero
-        //y se confunda con que es la ultima
-        for(int i=0;i<M-1;i++){
-            sem_post(&abejasRestantes);
+        pthread_mutex_lock(&mutexMujeres);
+        if(sem_trywait(&mujeresAdentro) == 0){
+            sem_post(&mujeresAdentro);
+        } else{
+            sem_wait(&salon);
         }
-        //ahora si va liberando las porciones-->duda: aca no puede pasar que el mientra el oso liebra las abejas van llenando?
-        for(int i=0;i<M;i++){
-            sem_post(&vacio);
+        sem_post(&mujeresAdentro);
+        pthread_mutex_unlock(&mutexMujeres);
+
+        sem_wait(&cupo);
+        printf("Una mujer entra al salon.\n");
+        usleep(200000);
+        printf("Una mujer sale del salon.\n");
+        sem_post(&cupo);
+
+        pthread_mutex_lock(&mutexMujeres);
+        sem_wait(&mujeresAdentro);
+        if(sem_trywait(&mujeresAdentro) == 0){
+            sem_post(&mujeresAdentro);
+        } else{
+            sem_post(&salon);
         }
-        printf("El oso se duerme y ya vacio el tarro\n");
-        sleep(5);
+        pthread_mutex_unlock(&mutexMujeres);
     }
+    return NULL;
 }
 
+//------------------------------------- MAIN --------------------------------------//
+int main(){
+    //----- INICIALIZO LOS SEMAFOROS -----//
+    sem_init(&salon, 0, 1);
+    sem_init(&cupo, 0, CAPACIDAD);
+    sem_init(&hombresAdentro, 0, 0);
+    sem_init(&mujeresAdentro, 0, 0);
+    pthread_mutex_init(&mutexHombres, NULL);
+    pthread_mutex_init(&mutexMujeres, NULL);
 
-int main() {
-    int M=0;
-    int cantidadAbejas=0;
-    while(M<=0){
-        printf("Indique cantidad de porciones\n");
-        scanf("%d", &M);
-    }
-    while(cantidadAbejas<=0){
-        printf("Indique cantidad de abejas\n");
-        scanf("%d", &cantidadAbejas);
-    }
-    sem_init(&vacio,0,M);//cantidad de porciones que faltan poner en el tarro
-    sem_init(&lleno,0,0);//binario, si es 0=no esta lleno, si es 1=esta lleno y lo consume entero el oso, sino debe llegar hasta M y consumir M porciones
-    sem_init(&abejasRestantes,0,M-1); //para saber si es la ultima porcion que se puso, la abeja M quiere descontar pero como M-1 ya pusieron debe avisarle al oso
-    srand(time(NULL));
-    pthread_t oso;
-    pthread_t abejas[cantidadAbejas];
-  
-    pthread_create(&oso, NULL, &rutina_oso, &M);
-    for(int i=0; i<cantidadAbejas;i++){
-        pthread_create(&abejas[i], NULL, &rutina_abeja, NULL);
+    //------ CREACION DE LOS HILOS -------//
+    for(int i = 0; i < N_HOMBRES; i++){
+        pthread_create(&hilosHombres[i], NULL, *hombres, NULL);
+        printf("Se creo correctamente el hombre: %d.\n", i+1);
     }
 
-    pthread_join(oso,NULL);
-    for(int i=0; i<cantidadAbejas;i++){
-        pthread_join(abejas[i], NULL);
+    for(int i = 0; i < N_MUJERES; i++){
+        pthread_create(&hilosMujeres[i], NULL, *mujeres, NULL);
+        printf("Se creo correctamente la mujer: %d.\n", i+1);
     }
-    
-    sem_close(&vacio);
-	sem_close(&lleno);
-	sem_close(&abejasRestantes);
-	return 0;
+
+    //------ ESPERO A QUE TERMINEN LOS HILOS (nunca) -------//
+    for(int i = 0; i < N_HOMBRES; i++){
+        pthread_join(hilosHombres[i], NULL);
+        printf("Se elimino correctamente el hombre: %d.\n", i+1);
+    }
+
+    for(int i = 0; i < N_MUJERES; i++){
+        pthread_join(hilosMujeres[i], NULL);
+        printf("Se elimino correctamente la mujer: %d.\n", i+1);
+    }
+
+    //------ DESTRUYO LOS SEMAFOROS (nunca) -------//
+    sem_destroy(&salon);
+    sem_destroy(&cupo);
+    sem_destroy(&hombresAdentro);
+    sem_destroy(&mujeresAdentro);
+    pthread_mutex_destroy(&mutexHombres);
+    pthread_mutex_destroy(&mutexMujeres);
+
+    return 0;
 }
