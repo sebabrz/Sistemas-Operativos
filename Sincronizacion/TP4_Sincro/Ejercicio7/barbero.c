@@ -6,13 +6,14 @@
 #include <sys/types.h>  // pid_t y otros tipos
 #include <stdint.h>     // enteros de tamaño fijo
 #include <string.h>     // manejo de strings
-#include <semaphore.h>
-#include <time.h>
+#include <semaphore.h>  // semaforos
+
 #define CLIENTES 15
 
 sem_t sillas;
 sem_t barbero;
 sem_t clientes;
+sem_t atencion;//es la silla del abrbero, la ocupo despues de que me llame para sentarme
 pthread_mutex_t mutex;
 
 void *barbudo(){
@@ -20,22 +21,26 @@ void *barbudo(){
         sem_wait(&clientes);//si no hay clientes espera aca dormido
         sem_post(&barbero);
         printf("El barbero corta el pelo al cliente \n");
+        sleep(1);
+        sem_post(&atencion);
+        printf("El barbero llama al proximo cliente si lo hay\n");
     }
 }
 
 void *cliente(void *argv){
     int id=(int)(intptr_t)argv;
-   // pthread_mutex_lock(&mutex);
     if(sem_trywait(&sillas)==0){
-        printf("Entro el cliente %d a la sala\n", id);       
+        printf("Entro el cliente %d a la sala\n", id);
         sem_post(&clientes);//si el barbero esta dormido lo despierta, sino solo se sienta
-       // pthread_mutex_unlock(&mutex);
-        printf("El cliente %d se sienta a esperar\n", id);  
+
+        printf("El cliente %d se sienta a esperar\n", id);
         sem_wait(&barbero);
-        sem_post(&sillas);      
+        sem_post(&sillas);
+        sem_wait(&atencion);
+        printf("El cliente %d pasa a cortarse el pelo\n", id);
+        sleep(3);
         printf("El cliente %d se cortó el pelo y se va\n", id);
     }else{
-        pthread_mutex_unlock(&mutex);
         printf("El cliente %d se va porque no habia sillas...\n", id);
         sleep(2);
     }
@@ -50,12 +55,13 @@ int main(){
     sem_init(&barbero,0,0);
     sem_init(&clientes,0,0);
     sem_init(&sillas,0,n);
+    sem_init(&atencion,0,1);
     pthread_t clientes_tid[CLIENTES];
     pthread_t barby;
-    pthread_mutex_init(&mutex, NULL);
+
     pthread_create(&barby, NULL, &barbudo, NULL);
-   for (int i = 0; i < CLIENTES; i++) {
-         pthread_create(&clientes_tid[i], NULL, &cliente, (void *)(intptr_t) i);
+    for (int i = 0; i < CLIENTES; i++) {
+        pthread_create(&clientes_tid[i], NULL, &cliente, (void *)(intptr_t) i);
     }
 
     for (int i = 0; i < CLIENTES; i++) {
@@ -65,8 +71,9 @@ int main(){
     pthread_join(barby,NULL);
 
     sem_close(&barbero);
-	sem_close(&sillas);
-	sem_close(&clientes);
+    sem_close(&sillas);
+    sem_close(&clientes);
+    sem_close(&atencion);
     pthread_mutex_destroy(&mutex);
 
     return 0;

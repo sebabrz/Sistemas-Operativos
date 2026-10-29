@@ -6,22 +6,32 @@
 #include <sys/types.h>  // pid_t y otros tipos
 #include <stdint.h>     // enteros de tamaño fijo
 #include <string.h>     // manejo de strings
-#include <semaphore.h>
-#include <time.h>
+#include <semaphore.h>  // semaforos
+#include <time.h>       // time
 
 sem_t vacio;
 sem_t lleno;
-sem_t abejasRestantes;
+sem_t terminaOso;
+pthread_mutex_t mutex;
 
 void *rutina_abeja(){
     while(1){
         printf("Una abeja se fija si hay porciones para poner\n");
+        //mutexlock: lo usamos para que cuando una se fija si es la ultima, para avisarle el oso y
+        //esperar que termino para que ninguna ponga cosas en el tarro cuando el oso libere las porciones
+        pthread_mutex_lock(&mutex);//hace que sea mas secuencial
         sem_wait(&vacio);//si hay porciones para poner, pone una, sino es porque el oso esta comiendo
         printf("Una abeja pone una porcion\n");
-        if(sem_trywait(&abejasRestantes)!=0){//si nadie mas tiene que poner es porque soy la ultima, asique
+
+        if(sem_trywait(&vacio)!=0){//si no hay mas porciones que poner en el tarro
             printf("La ultima abeja avisa al oso\n");
-            sem_post(&lleno);//aviso al oso
+            sem_post(&lleno);
+            sem_wait(&terminaOso);
+        }else{
+            sem_post(&vacio);
         }
+        pthread_mutex_unlock(&mutex);
+
         sleep(2);
     }
 }
@@ -33,15 +43,11 @@ void *rutina_oso(void *arg){
         sem_wait(&lleno);//esta dormido inicialmente y se despierta cuando las abejas le dicen que esta lleno con el signal(lleno)
         printf("El oso se despierta\n");
 
-        //el oso libera todas las vacantes antes que las M porciones, para que una abeja no llene con la porcion que recien libero
-        //y se confunda con que es la ultima
-        for(int i=0;i<M-1;i++){
-            sem_post(&abejasRestantes);
-        }
         //ahora si va liberando las porciones-->duda: aca no puede pasar que el mientra el oso liebra las abejas van llenando?
         for(int i=0;i<M;i++){
             sem_post(&vacio);
         }
+        sem_post(&terminaOso);//post terminooso
         printf("El oso se duerme y ya vacio el tarro\n");
         sleep(5);
     }
@@ -61,23 +67,23 @@ int main() {
     }
     sem_init(&vacio,0,M);//cantidad de porciones que faltan poner en el tarro
     sem_init(&lleno,0,0);//binario, si es 0=no esta lleno, si es 1=esta lleno y lo consume entero el oso, sino debe llegar hasta M y consumir M porciones
-    sem_init(&abejasRestantes,0,M-1); //para saber si es la ultima porcion que se puso, la abeja M quiere descontar pero como M-1 ya pusieron debe avisarle al oso
+    sem_init(&terminaOso,0,0); //para saber si es la ultima porcion que se puso, la abeja M quiere descontar pero como M-1 ya pusieron debe avisarle al oso
     srand(time(NULL));
     pthread_t oso;
     pthread_t abejas[cantidadAbejas];
-  
+
     pthread_create(&oso, NULL, &rutina_oso, &M);
-    for(int i=0; i<cantidadAbejas;i++){
+    for(int i=0; i<cantidadAbejas; i++){
         pthread_create(&abejas[i], NULL, &rutina_abeja, NULL);
     }
 
     pthread_join(oso,NULL);
-    for(int i=0; i<cantidadAbejas;i++){
+    for(int i=0; i<cantidadAbejas; i++){
         pthread_join(abejas[i], NULL);
     }
-    
+
     sem_close(&vacio);
-	sem_close(&lleno);
-	sem_close(&abejasRestantes);
-	return 0;
+    sem_close(&lleno);
+    sem_close(&abejasRestantes);
+    return 0;
 }
