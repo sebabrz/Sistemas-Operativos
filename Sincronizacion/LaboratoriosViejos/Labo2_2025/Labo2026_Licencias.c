@@ -6,7 +6,6 @@
 #include <time.h>
 #include <stdint.h>
 
-#define VARIABLE 10
 #define USUARIOS 30
 
 pthread_t hilosUsuarios[USUARIOS]; //Muchos hilos del mismo tipo
@@ -24,7 +23,6 @@ pthread_mutex_t BD; //semaforo de tipo mutex
     Si no puede conseguir todas las licencias requeriodas, se retira sin hacer nada 
 
     */
-
 
 void *Usuarios(void *arg){  
     int id = (int)(intptr_t) arg;
