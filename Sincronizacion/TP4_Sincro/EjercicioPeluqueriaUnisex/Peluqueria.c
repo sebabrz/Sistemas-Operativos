@@ -25,7 +25,7 @@ pthread_mutex_t mutexMujeres; //protege mujeresAdentro
 //----------------------------------- RUTINAS -------------------------------------//
 void *hombres(void *arg){
     while(1){
-        sem_wait(&cupo); //lugar libre (maximo 3)-->CORREGIR: deberia primero consultarse el cupo antes de entrar
+        sem_wait(&cupo); //lugar libre (maximo 3), suponiendo que hay hombres, podria entrar?
         printf("un hombre entra al salon \n");
         pthread_mutex_lock(&mutexHombres);
         if(sem_trywait(&hombresAdentro) == 0){ //ya habia algun hombre
