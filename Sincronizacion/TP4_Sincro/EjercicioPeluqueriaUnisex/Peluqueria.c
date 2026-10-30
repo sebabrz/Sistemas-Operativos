@@ -43,11 +43,11 @@ void *hombres(void *arg){
             sem_post(&hombresAdentro); //devuelvo lo que saque al preguntar
         } else{ //quedo en 0: era el ultimo
             sem_post(&salon);
-            sleep(5);
         }
         pthread_mutex_unlock(&mutexHombres);
         printf("Un hombre sale del salon\n");
         sem_post(&cupo);
+        sleep(1);
     }
     return NULL;
 }
@@ -71,11 +71,11 @@ void *mujeres(void *arg){
             sem_post(&mujeresAdentro);
         } else{
             sem_post(&salon);
-            sleep(3);
         }
         pthread_mutex_unlock(&mutexMujeres);
         printf("Una mujer sale del salon\n");
         sem_post(&cupo);
+        sleep(1);
     }
     return NULL;
 }

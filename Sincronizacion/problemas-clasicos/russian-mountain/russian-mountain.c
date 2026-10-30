@@ -27,7 +27,10 @@ void* pasajero(void* args){
 	sem_wait(&embarq);
 	if(sem_trywait(&embarq) == 0) //
 		sem_post(&embarq);
-	else {sem_post(&todosadentro); for(int i = 0; i < CANT_PASAJEROS; i++) sem_post(&embarq);}
+	else {
+		sem_post(&todosadentro); 
+		for(int i = 0; i < CANT_PASAJEROS; i++) 
+		sem_post(&embarq);}
 	
 	pthread_mutex_unlock(&mutex);
 	
