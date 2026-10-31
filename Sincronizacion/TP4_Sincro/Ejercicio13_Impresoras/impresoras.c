@@ -4,7 +4,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define VARIABLE 10
+#define VARIABLE
+
 
 pthread_t nombreHilo[VARIABLE];
 pthread_t nombreHilo2;
@@ -20,7 +21,7 @@ void *RutinaNombre1(void *arg){
         sem_wait(&nombreSemaforo);
         sem_post(&nombreSemaforo);
 
-        if(sem_trywait(&nombreSemaforo) == 0){
+        if(sem_trywait(&nombreSemaforo) == 0){  //Si puedo decremetar el semaforo, devuelve 0, sino -1
 
         } else{
 
