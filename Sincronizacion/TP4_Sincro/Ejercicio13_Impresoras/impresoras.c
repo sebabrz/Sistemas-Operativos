@@ -3,6 +3,8 @@
 #include <semaphore.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <time.h>
 
 #define USUARIOS 15
 
@@ -15,78 +17,87 @@ b) Resuelva este problema considerando que cada usuario tiene una prioridad úni
 
 */
 
-pthread_t usuarios[USUARIOS];
-int *numeroImpresora[NUMERO]= { 1, 2};
-
-sem_t impresoras[NUMERO]; 
-sem_t impresora1;
-sem_t impresora2;
+sem_t impresora1;       // binario: 1 = la impresora 1 esta libre, 0 = en uso
+sem_t impresora2;       // binario: 1 = la impresora 2 esta libre, 0 = en uso
 sem_t impresorasLibres; // contador en 2, inicialmente hay 2 libres, el usuario se queda esperando alguna libre
-pthread_mutex_t mutex;
+pthread_mutex_t mutex;  // hace atomica la eleccion de la impresora
 
-int requerirImpresora(int nro){
+// "usuario" es la identidad del USUARIO (solo se usa para los mensajes).
+// La impresora NO se pasa: la elige requerir y la devuelve.
+int requerirImpresora(int usuario){
+    int impresora = 0; // inicializada: si no, se podria devolver basura
+
+    printf("Usuario %d: esperando alguna impresora\n", usuario);
     sem_wait(&impresorasLibres);
-    pthread_mutex_lock(mutex);
+    pthread_mutex_lock(&mutex);
 
     if(sem_trywait(&impresora1)==0){
-        nro=1;
+        impresora=1;
     }else if(sem_trywait(&impresora2)==0){  
-        nro=2;
+        impresora=2;
     }
 
-
     pthread_mutex_unlock(&mutex);
-    return nro;
+    return impresora;
 }
 
-void liberarImpresora(){
-    pthread_mutex_lock(mutex);
+void liberarImpresora(int usuario, int impresora){
+    pthread_mutex_lock(&mutex);
 
-    if(nro==1){
-        printf("\n");
+    if(impresora==1){
+        printf("Usuario %d: se libero impresora %d\n", usuario, impresora);
         sem_post(&impresora1);
+        sem_post(&impresorasLibres);
+    }else{
+        printf("Usuario %d: se libero impresora %d\n", usuario, impresora);
+        sem_post(&impresora2);
         sem_post(&impresorasLibres);
     }
 
-
     pthread_mutex_unlock(&mutex);
 
+}
+
+void imprimir(int usuario, int impresora){
+    printf("[Impresora %d] Usuario %d imprimiendo.\n", impresora, usuario);
+    sleep(rand()%4);
+    printf("[Impresora %d] Usuario %d termino de imprimir.\n", impresora, usuario);
 }
 
 
 void *user(void *arg){
+    int usuario = (int)(intptr_t) arg; // id del usuario (1..USUARIOS)
+
     while(1){
-        int nro=0;
-        nro=requerir(nro);
-        printf("La impresora requerida es la impresora%d\n", nro);
-        sleep(1);
-        liberarImpresora(nro);
+        int impresora = requerirImpresora(usuario);
+        printf("Usuario %d: la impresora requerida es la impresora %d\n", usuario, impresora);
+        imprimir(usuario, impresora);
+        liberarImpresora(usuario, impresora);
     }
     return NULL;
 }
 
 
 int main(){
-    sem_init(&nombreSemaforo, 0, 0);
+    pthread_t usuarios[USUARIOS];
+    srand(time(NULL));
+
+    sem_init(&impresora1, 0, 1);
+    sem_init(&impresora2, 0, 1);
+    sem_init(&impresorasLibres, 0, 2);
     pthread_mutex_init(&mutex, NULL);
 
-    pthread_create(&nombreHilo2, NULL, *RutinaNombre1, NULL);
-    printf("Se creo correctamente el hilo.\n");
-
-    for(int i = 0; i < VARIABLE; i++){
-        pthread_create(&nombreHilo[i], NULL, *RutinaNombre2, NULL);
-        printf("Se creo correctamente el hilo: %d.\n", i+1);
+    for(int i = 0; i < USUARIOS; i++){
+        pthread_create(&usuarios[i], NULL, *user, (void *)(intptr_t)(i+1)); // le paso el id 1..USUARIOS
     }
 
-    pthread_join(nombreHilo2, NULL);
-    printf("Se elimino correctamente el hilo.\n");
-
-    for(int i = 0; i < VARIABLE; i++){
-        pthread_join(nombreHilo[i], NULL);
-        printf("Se elimino correctamente el hilo: %d.\n", i+1);
+    for(int i = 0; i < USUARIOS; i++){
+        pthread_join(usuarios[i], NULL);
     }
 
-    sem_destroy(&nombreSemaforo);
+    sem_destroy(&impresora1);
+    sem_destroy(&impresora2);
+    sem_destroy(&impresorasLibres);
     pthread_mutex_destroy(&mutex);
 
     return 0;

@@ -17,7 +17,7 @@ pthread_mutex_t mutex;  //hace atomica la eleccion de la impresora
 
 int requerir(){
     int id = 0;
-
+    
     sem_wait(&impresorasLibres); //espera hasta que haya una impresora disponible
 
     pthread_mutex_lock(&mutex);
