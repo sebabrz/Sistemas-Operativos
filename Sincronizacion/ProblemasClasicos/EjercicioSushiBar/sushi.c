@@ -8,105 +8,104 @@
 #include <time.h>
 
 //--------------------- AGREGOS LOS DEFINE (de ser necesario) ---------------------//
-#define ASIENTOS 5
-#define N_CLIENTES 12
-
-//--------------------------- DECLARACION DE LOS HILOS ----------------------------//
-pthread_t hilosClientes[N_CLIENTES];
+#define ASIENTOS 5     //cantidad de asientos del bar = tamanio del grupo
+#define N_CLIENTES 12  //cantidad de clientes (tiene que ser >= ASIENTOS)
 
 //------------------------- DECLARACION DE LOS SEMAFOROS --------------------------//
-sem_t asientosLibres; //contador: asientos libres, arranca en 5
-sem_t comiendo;       //contador: cuantos estan comiendo, arranca en 0
-sem_t esperando;      //contador: cuantos esperan que se vaya el grupo, arranca en 0
-sem_t cerrado;        //binario: 1 = los 5 asientos se llenaron juntos, 0 = abierto
-sem_t bloqueo;        //aca duermen los que esperan al grupo, arranca en 0
-pthread_mutex_t mutex; //protege el estado del bar
+/* Idea general:
+ *  - Los asientos se devuelven TODOS JUNTOS, y solo cuando se va el ultimo del grupo.
+ *    Asi "esperar a que se vaya todo el grupo" sale solo del contador de asientos.
+ *  - Para saber quien es el 5to que se sienta y quien es el ultimo que se va usamos
+ *    el mismo truco: un contador en 4 y sem_trywait. Los primeros 4 lo consumen, y
+ *    al 5to el trywait le falla (ahi sabe que es el ultimo de esa fase).
+ *  - El mutex es la "puerta" del bar: se entra (se toma asiento) y se sale de A UNO.
+ *    Se usa solo en esos momentos; NUNCA se duerme con el mutex tomado
+ *    (comer y esperar al grupo pasan con la puerta libre). */
+sem_t libres;   //contador: asientos libres, arranca en 5. Si vale 0, el que llega se bloquea aca (hay un grupo en el bar)
+sem_t faltan;   //contador: cuantos del grupo todavia pueden pasar SIN ser el ultimo, arranca en 4.
+                //Se usa en dos fases que nunca se pisan: al sentarse (para detectar al 5to)
+                //y al irse (para detectar al ultimo). Cada fase lo deja otra vez en 4.
+sem_t comenzar; //aca esperan los que ya se sentaron hasta que se siente el 5to, arranca en 0
+pthread_mutex_t mutex; //la puerta: entrar y salir de a uno
 
 //----------------------------------- RUTINAS -------------------------------------//
 void *cliente(void *arg){
-    int id = (int)(intptr_t)arg;
+    int id = (int)(intptr_t)arg; //recupero el numero de cliente que me paso el main
 
-    while(1){
-        usleep(rand() % 1000000); //llega al bar en cualquier momento
+    while(1){ //el cliente vuelve al bar una y otra vez
+        usleep(rand() % 1000000); //tarda un tiempo al azar en llegar (hasta 1 segundo)
 
         //----- LLEGADA -----//
-        pthread_mutex_lock(&mutex);
-        if(sem_trywait(&cerrado) == 0){ //el bar esta cerrado: hay que esperar al grupo
-            sem_post(&cerrado);         //solo estaba preguntando, lo dejo como estaba
-            sem_post(&esperando);       //me anoto como esperando
-            pthread_mutex_unlock(&mutex); //suelto el mutex ANTES de dormirme
+        pthread_mutex_lock(&mutex);        //paso por la puerta (de a uno)
+        if(sem_trywait(&libres) != 0){     //intento tomar un asiento SIN esperar. Si falla, libres vale 0: hay un grupo en el bar
+            pthread_mutex_unlock(&mutex);  //suelto la puerta ANTES de dormirme (si no, el grupo no podria salir)
             printf("Cliente %d espera a que se vaya el grupo.\n", id);
-            sem_wait(&bloqueo);         //el ultimo del grupo me va a despertar
-        } else{                         //el bar esta abierto: me siento
-            sem_wait(&asientosLibres);  //no se bloquea: abierto significa que hay asiento
-            sem_post(&comiendo);
-            if(sem_trywait(&asientosLibres) == 0){ //todavia queda algun asiento
-                sem_post(&asientosLibres);         //devuelvo lo que saque al preguntar
-            } else{                                //era el quinto: se llenaron los 5
-                sem_post(&cerrado);
+            sem_wait(&libres);             //me duermo hasta que el ultimo del grupo libere los asientos
+            pthread_mutex_lock(&mutex);    //ya tengo asiento: vuelvo a pasar por la puerta, de a uno
+        }                                  //(si el trywait anduvo, ya tengo mi asiento y sigo con la puerta tomada)
+        printf("Cliente %d se sienta.\n", id);
+
+        //----- ESPERO A QUE SE SIENTEN LOS 5 -----//
+        if(sem_trywait(&faltan) == 0){     //el trywait anduvo: todavia hay lugar antes del 5to, asi que NO soy el ultimo en sentarme
+            pthread_mutex_unlock(&mutex);  //suelto la puerta ANTES de dormirme (los que faltan tienen que poder entrar)
+            sem_wait(&comenzar);           //me duermo hasta que se siente el que falta (el 5to me va a despertar)
+        } else{                            //el trywait fallo: ya se sentaron 4 antes que yo, soy el 5to y el grupo esta completo
+            for(int i = 0; i < ASIENTOS - 1; i++){
+                sem_post(&faltan);         //repongo faltan en 4 para usarlo en la SALIDA (la fase de sentarse lo dejo en 0)
+            }                              //(lo repongo ANTES de despertar a nadie, asi nadie lo usa mientras esta en 0)
+            for(int i = 0; i < ASIENTOS - 1; i++){
+                sem_post(&comenzar);       //despierto a los otros 4 que estaban esperando (uno por cada post)
             }
-            pthread_mutex_unlock(&mutex);
+            pthread_mutex_unlock(&mutex);  //ya termine de entrar: suelto la puerta
         }
 
         //----- COMER -----//
-        printf("Cliente %d come sushi.\n", id);
-        sleep(1);
-        printf("Cliente %d termina de comer y se va.\n", id);
+        printf("Cliente %d come sushi.\n", id); //llegamos aca recien cuando estan los 5 sentados (y sin la puerta tomada)
+        sleep(1);                               //tarda 1 segundo en comer
 
         //----- SALIDA -----//
-        pthread_mutex_lock(&mutex);
-        sem_post(&asientosLibres);      //libero mi asiento
-        sem_wait(&comiendo);            //me resto de los que comen
-        if(sem_trywait(&comiendo) == 0){ //queda alguien comiendo
-            sem_post(&comiendo);         //devuelvo lo que saque al preguntar
-        } else{                          //no queda nadie: era el ultimo del grupo
-            sem_trywait(&cerrado);       //si estaba cerrado lo abro (si no, no pasa nada)
-            int pasan = 0;
-            while(pasan < ASIENTOS && sem_trywait(&esperando) == 0){
-                sem_wait(&asientosLibres); //le ocupo el asiento al que esperaba
-                sem_post(&comiendo);
-                sem_post(&bloqueo);        //lo despierto
-                pasan++;
+        pthread_mutex_lock(&mutex);        //paso por la puerta para irme (de a uno)
+        printf("Cliente %d termina de comer y se va.\n", id);
+        if(sem_trywait(&faltan) != 0){     //el trywait fallo: ya se fueron 4 antes que yo, soy el ultimo del grupo
+            for(int i = 0; i < ASIENTOS - 1; i++){
+                sem_post(&faltan);         //repongo faltan en 4 para que el PROXIMO grupo pueda usarlo al sentarse
+            }                              //(otra vez ANTES de liberar los asientos, asi esta listo cuando entre alguien)
+            for(int i = 0; i < ASIENTOS; i++){
+                sem_post(&libres);         //libero los 5 asientos juntos: ahora si pueden entrar los que esperaban (u otros que lleguen)
             }
-            if(pasan == ASIENTOS){         //pasaron 5: el bar vuelve a quedar cerrado
-                sem_post(&cerrado);
-            }
-        }
-        pthread_mutex_unlock(&mutex);
+        }                                  //si el trywait anduvo, no soy el ultimo: me voy SIN liberar mi asiento (el bar sigue ocupado)
+        pthread_mutex_unlock(&mutex);      //ya sali: suelto la puerta
     }
     return NULL;
 }
 
 //------------------------------------- MAIN --------------------------------------//
 int main(){
-    srand(time(NULL));
+    pthread_t hilosClientes[N_CLIENTES]; //un hilo por cliente (local al main, no es global)
+    srand(time(NULL));                   //semilla para los tiempos al azar de llegada
 
     //----- INICIALIZO LOS SEMAFOROS -----//
-    sem_init(&asientosLibres, 0, ASIENTOS);
-    sem_init(&comiendo, 0, 0);
-    sem_init(&esperando, 0, 0);
-    sem_init(&cerrado, 0, 0);
-    sem_init(&bloqueo, 0, 0);
-    pthread_mutex_init(&mutex, NULL);
+    sem_init(&libres, 0, ASIENTOS);      //al principio estan los 5 asientos libres
+    sem_init(&faltan, 0, ASIENTOS - 1);  //4 lugares "antes del ultimo" para la primera fase (sentarse)
+    sem_init(&comenzar, 0, 0);           //nadie tiene permiso de empezar a comer todavia
+    pthread_mutex_init(&mutex, NULL);    //la puerta arranca libre
 
     //------ CREACION DE LOS HILOS -------//
     for(int i = 0; i < N_CLIENTES; i++){
-        pthread_create(&hilosClientes[i], NULL, *cliente, (void *)(intptr_t)(i+1));
+        pthread_create(&hilosClientes[i], NULL, cliente, (void *)(intptr_t)(i+1)); //le paso el numero de cliente (1..N)
         printf("Se creo correctamente el cliente: %d.\n", i+1);
     }
 
     //------ ESPERO A QUE TERMINEN LOS HILOS (nunca) -------//
     for(int i = 0; i < N_CLIENTES; i++){
-        pthread_join(hilosClientes[i], NULL);
+        pthread_join(hilosClientes[i], NULL); //los clientes tienen while(1): el main se queda aca para siempre
         printf("Se elimino correctamente el cliente: %d.\n", i+1);
     }
 
     //------ DESTRUYO LOS SEMAFOROS (nunca) -------//
-    sem_destroy(&asientosLibres);
-    sem_destroy(&comiendo);
-    sem_destroy(&esperando);
-    sem_destroy(&cerrado);
-    sem_destroy(&bloqueo);
+    sem_destroy(&libres);
+    sem_destroy(&faltan);
+    sem_destroy(&comenzar);
     pthread_mutex_destroy(&mutex);
 
     return 0;

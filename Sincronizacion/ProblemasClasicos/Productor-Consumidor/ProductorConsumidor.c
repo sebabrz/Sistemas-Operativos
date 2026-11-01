@@ -70,7 +70,6 @@ void *consumidor(void *arg){
             a->buffer->out = (a->buffer->out + 1) % N;
         pthread_mutex_unlock(&mutex);
         sem_post(&vacio);                             // hay un lugar mas
-
         sleep(2);                                     // consumir el item: fuera del mutex
     }
     return NULL;

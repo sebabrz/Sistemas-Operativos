@@ -40,22 +40,18 @@ pthread_mutex_t MUTEX2; //mutex para la mesa2
 
 void dejarObjeto1(int id){
         printf("Soy el participante %d , se pudo dejar objeto en la mesa 1 \n", id);
-        sem_post(&mesa1);
 }
 
 void dejarObjeto2(int id){
         printf("Soy el participante %d Se pudo dejar objeto en la mesa 2 \n", id);
-        sem_post(&mesa2);
 }
 
 void retirarObjeto1(int id){
         printf("Soy el participante %d, se pudo retirar objeto en la mesa 1 \n", id);
-        sem_post(&vacio1);
 }
 
 void retirarObjeto2(int id){
         printf("Soy el participante %d pudo retirar objeto en la mesa 2 \n", id);
-        sem_post(&vacio2);
 }
 
 void *participante(void *arg){
@@ -73,11 +69,13 @@ while(1){
             pthread_mutex_lock(&MUTEX1);
             retirarObjeto1(id);
             pthread_mutex_unlock(&MUTEX1);
+            sem_post(&vacio1);
         } else {
             sem_wait(&vacio1);
             pthread_mutex_lock(&MUTEX1);
             dejarObjeto1(id);
             pthread_mutex_unlock(&MUTEX1);
+            sem_post(&mesa1);
         }
     } else {
         printf("Soy el participante: %d elije la mesa 2 \n", id);
@@ -88,11 +86,13 @@ while(1){
             pthread_mutex_lock(&MUTEX2);
             retirarObjeto2(id);
             pthread_mutex_unlock(&MUTEX2);
+            sem_post(&vacio2);
         } else {
             sem_wait(&vacio2);
             pthread_mutex_lock(&MUTEX2);
             dejarObjeto2(id);
             pthread_mutex_unlock(&MUTEX2);
+            sem_post(&mesa2);
         }
     }
     sleep(1);
