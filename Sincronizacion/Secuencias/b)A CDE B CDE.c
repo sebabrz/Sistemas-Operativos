@@ -1,26 +1,6 @@
-/*
-    SECUENCIA (b):  A CDE B CDE A CDE B CDE ...
-
-    C, D y E se repiten en cada vuelta; lo que alterna es A y B.
-    Entonces A y B le hacen post a C (no uno al otro), y E, que imprime dos veces por ciclo,
-    alterna a quien habilita: la primera vez post(B), la segunda post(A).
-
-    OJO: en el pseudocodigo del apunte A hacia signal(B); eso da "A B C D E..." (B imprimiria enseguida).
-    Tiene que ser post(C).
-*/
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
-
-// Pausa solo para poder leer la salida en pantalla (no sincroniza nada)
-#ifndef PAUSA_US
-#define PAUSA_US 200000
-#endif
-
-sem_t a, b, c, d, e;
-
+/*SECUENCIA (b):  A CDE B CDE A CDE B CDE ...*/
+sem_t a, b, c, d, e;//a inicializado en 1, los demas en 0
+pthread_t ta, tb, tc, td, te;
 void *imprimirA(void *arg){
     while(1){
         sem_wait(&a);
@@ -64,26 +44,4 @@ void *imprimirE(void *arg){
         sem_post(&a);                 // ahora le toca a A
     }
     return NULL;
-}
-
-int main(){
-    pthread_t ta, tb, tc, td, te;
-
-    sem_init(&a, 0, 1);
-    sem_init(&b, 0, 0);
-    sem_init(&c, 0, 0);
-    sem_init(&d, 0, 0);
-    sem_init(&e, 0, 0);
-
-    pthread_create(&ta, NULL, imprimirA, NULL);
-    pthread_create(&tb, NULL, imprimirB, NULL);
-    pthread_create(&tc, NULL, imprimirC, NULL);
-    pthread_create(&td, NULL, imprimirD, NULL);
-    pthread_create(&te, NULL, imprimirE, NULL);
-
-    pthread_join(ta, NULL); pthread_join(tb, NULL); pthread_join(tc, NULL);
-    pthread_join(td, NULL); pthread_join(te, NULL);
-
-    sem_destroy(&a); sem_destroy(&b); sem_destroy(&c); sem_destroy(&d); sem_destroy(&e);
-    return 0;
 }

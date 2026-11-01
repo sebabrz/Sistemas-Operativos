@@ -16,12 +16,6 @@
     Si el enunciado NO pide datos reales (solo contar lugares), alcanza con vacio y lleno
     y se saca el arreglo, los indices y el mutex.
 */
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
-
 #define N 5
 #define PRODUCTORES 3
 #define CONSUMIDORES 2

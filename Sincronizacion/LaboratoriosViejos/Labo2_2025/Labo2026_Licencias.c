@@ -12,17 +12,7 @@ pthread_t hilosUsuarios[USUARIOS]; //Muchos hilos del mismo tipo
 
 sem_t licencias;  //semaforo normal (contador o binario)
 pthread_mutex_t BD; //semaforo de tipo mutex
-
-    /*
-    Un centro de computos controla el uso de licencias de un software especializado
-
-    Se disponen un total de 20 licencias
-    Cada usuario puede requerir entre 1 y 3 licencias
-    Si consigue las licencias requeridas, realiza su trabajo
-    Al terminar guarda sus resultados en una base de datos compartida y por ultimo libera las licencias utilizadas
-    Si no puede conseguir todas las licencias requeriodas, se retira sin hacer nada 
-
-    */
+Z
 
 void *Usuarios(void *arg){  
     int id = (int)(intptr_t) arg;

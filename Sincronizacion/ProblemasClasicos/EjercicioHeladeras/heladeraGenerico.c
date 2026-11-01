@@ -1,22 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <time.h>
-#include <pthread.h>
-#include <semaphore.h>
-
 #define HUESPEDES 30
 #define MAXIMA 5
 #define TIPOS 10
-
-/*
-Heladera de hotel con TIPOS tipos de bebida, cada una con stock maximo MAXIMA.
-Los huespedes usan la heladera de a uno. Si un huesped se lleva la ultima unidad
-de una bebida, despierta al repositor y espera a que termine de reponer.
-Mientras tanto nadie mas puede usar la heladera.
-Para agregar bebidas alcanza con cambiar TIPOS y agregar el nombre en la lista.
-*/
-
 char *nombres[TIPOS] = {
     "Agua", "Cerveza", "Leche", "Gaseosa", "Jugo",
     "Vino", "Soda", "Te helado", "Fernet", "Champagne"
@@ -24,8 +8,7 @@ char *nombres[TIPOS] = {
 
 pthread_t huespedes[HUESPEDES];
 pthread_t repositor;
-
-sem_t stock[TIPOS];     // un semaforo contador por bebida
+sem_t stock[TIPOS];     // un semaforo contador por bebida, INI=MAXIMA
 sem_t avisoAlRepo;      // el repositor duerme aca hasta que lo despierten
 sem_t finRepo;          // el huesped espera aca mientras se repone
 pthread_mutex_t heladera;

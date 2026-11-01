@@ -1,22 +1,6 @@
-/*
-    SECUENCIA (h):  AB(D o E)AC(D o E)F AB(D o E)AC(D o E)F ...
-
-    A necesita 2 fichas (a = 2) y habilita a B y a C a la vez; B necesita 2 avisos de A (por eso b arranca en 1).
-    D y E comparten el semaforo `de`: imprime el que llegue primero. F necesita 2 fichas (las de D o E).
-*/
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
-
-// Pausa solo para poder leer la salida en pantalla (no sincroniza nada)
-#ifndef PAUSA_US
-#define PAUSA_US 200000
-#endif
-
-sem_t a, b, c, de, f;
-
+/*SECUENCIA (h):  AB(D o E)AC(D o E)F AB(D o E)AC(D o E)F ...*/
+sem_t a, b, c, de, f;//a=2, b=1 los demas en 0
+pthread_t ta, tb, tc, td, te, tf;
 void *imprimirA(void *arg){
     while(1){
         sem_wait(&a);

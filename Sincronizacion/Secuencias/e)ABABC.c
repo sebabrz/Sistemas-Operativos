@@ -1,22 +1,6 @@
-/*
-    SECUENCIA (e):  ABABC...(se repite)
-
-    A y B se turnan dos veces y despues entra C.
-    B alterna a quien habilita: la primera vez a A, la segunda a C.
-*/
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <semaphore.h>
-#include <unistd.h>
-
-// Pausa solo para poder leer la salida en pantalla (no sincroniza nada)
-#ifndef PAUSA_US
-#define PAUSA_US 200000
-#endif
-
-sem_t a, b, c;
-
+/*SECUENCIA (e):  ABABC...(se repite)*/
+sem_t a, b, c;//a inicializado en 1, los demas en 0
+pthread_t ta, tb, tc;
 void *imprimirA(void *arg){
     while(1){
         sem_wait(&a);
